@@ -1,0 +1,776 @@
+#!/bin/sh -e
+
+# Copyright (c) 2020, Ominitay
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+### TODO ###
+# Better error catching
+# Mod updates
+# Detailed commenting for maintainability
+# Self-updating
+# Shorten inefficient code
+# Add Linux-native IPA (waiting on geefr for that one...)
+
+self_dir_config="$HOME/.config/shaber"
+self_dir_config_default="$HOME/Devel/ShellSaber"
+
+self_dir_root="$HOME/Devel/ShellSaber"
+self_dir_disabled="$self_dir_root/downloads"
+self_dir_disabled_tmp="$self_dir_root/tmp"
+self_dir_enabled="$self_dir_root/installed"
+
+self_version=0.1
+
+log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
+log_debug() { return 0; }
+log_info() { log "Info" "$1" "\033[0m"; }
+log_warn() { log "Warn" "$1" "\033[1;38;5;214m"; }
+log_error() { log "Error" "$1" "\033[1;38;5;196m"; exit 1; }
+
+self_enable_debug() { log_debug() { log "Debug" "$1" "\033[1;38;5;27m" ;} }
+
+config_get() {
+  if [ -f "$self_dir_config/config" ]
+  then
+    # This file does not have to exist, so don't warn if it doesn't.
+    # shellcheck disable=SC1091
+    # Get variables from file so that shellcheck knows assigned variables.
+    # shellcheck source=.config/shaber/config
+    . "$self_dir_config/config" || log_error "Failed to source config file from '$self_dir_config/config'"
+  else
+    [ -f "$self_dir_config_default/config" ] || log_error "Default config file at '$self_dir_config_default/config' does not exist."
+    log_warn "Using default config file at '$self_dir_config_default/config'. It is recommended to copy this to '$self_dir_config/config' and modify it to your needs."
+    # Get variables from file so that shellcheck knows assigned variables.
+    # shellcheck source=config
+    . "$self_dir_config_default/config" || log_error "Failed to source config file from '$self_dir_config_default/config'"
+  fi
+}
+
+tool_download() ( curl -fsL "$1"; )
+
+tool_mod_check_enabled() { [ -d "$self_dir_enabled/$1" ]; }
+
+tool_mod_check_disabled() { [ -d "$self_dir_disabled/$1" ]; }
+
+tool_mod_check_local() { tool_mod_check_enabled "$1" || tool_mod_check_disabled "$1"; }
+
+tool_mod_get_location() {
+  location="none"
+  tool_mod_check_enabled "$1" && location="$self_dir_enabled/$1"
+  tool_mod_check_disabled "$1" && location="$self_dir_disabled/$1"
+  printf "%s" "$location"
+}
+
+tool_mod_list_enabled() { ls -1N "$self_dir_enabled"; }
+
+tool_mod_list_disabled() { ls -1N "$self_dir_disabled"; }
+
+tool_mod_list_all () { tool_mod_list_enabled; tool_mod_list_disabled; }
+
+tool_mod_set_explicit () {
+  if [ -d "$self_dir_enabled/$1/.shaber" ]
+  then
+    if [ -f "$self_dir_enabled/$1/.shaber/explicit" ]
+    then
+      log_warn "Mod '$1' is already set as explicit."
+    else
+      touch "$self_dir_enabled/$1/.shaber/explicit"
+      log_info "Mod '$1' set as explicit."
+    fi
+  else
+    log_error "Mod '$1' is not enabled."
+  fi
+}
+
+tool_mod_unset_explicit () {
+  if [ -d "$self_dir_enabled/$1/.shaber" ]
+  then
+    if [ -f "$self_dir_enabled/$1/.shaber/explicit" ]
+    then
+      rm -f "$self_dir_enabled/$1/.shaber/explicit"
+      log_info "Mod '$1' unset as explicit."
+    else
+      log_warn "Mod '$1' is not set as explicit."
+    fi
+  else
+    log_error "Mod '$1' is not enabled."
+  fi
+}
+
+tool_urlencode() ( printf "%s" "$1" | jq -Rr '@uri'; )
+
+tool_split() ( printf "%s" "$1" | cut -d "$2" -f "$3"; )
+
+tool_find_in_array() (
+  while IFS= read -r match
+  do [ "$match" = "$1" ] && return 0
+  done <<EOF
+$2
+EOF
+  return 1
+)
+
+tool_find_in_array_json_name() (
+  while IFS= read -r match
+  do [ "$(json_get_name "$match")" = "$1" ] && return 0
+  done <<EOF
+$2
+EOF
+  return 1
+)
+
+tool_dedupe_array() ( printf "%s" "$1" | awk '!seen[$0]++' )
+
+tool_version_compare() { [ "$1" = "$(printf "%s\n%s" "$1" "$2" | sort -V | head -n1)" ]; }
+
+self_get_version() { printf "shaber-%s\n" "$self_version"; }
+
+self_check_command() ( command -v "$1" > /dev/null; )
+
+self_check_dependencies() (
+  log_debug "Checking dependencies"
+  self_check_command "jq"         || log_error "jq is not installed"
+  self_check_command "curl"       || log_error "curl is not installed"
+  self_check_command "wine"       || log_error "wine is not installed"
+  self_check_command "winetricks" || log_error "winetricks is not installed"
+  self_check_command "cabextract" || log_error "cabextract is not installed"
+  bs_check_version                || log_error "Beat Saber version is invalid"
+  [ -d "$bs_dir" ]                || log_error "Cannot find Beat Saber's directory"
+  [ -d "$self_dir_root" ]         || mkdir "$self_dir_root"         || log_error "Couldn't create root directory '$self_dir_root'"
+  [ -d "$self_dir_disabled" ]     || mkdir "$self_dir_disabled"     || log_error "Couldn't create disabled directory '$self_dir_disabled'"
+  [ -d "$self_dir_disabled_tmp" ] || mkdir "$self_dir_disabled_tmp" || log_error "Couldn't create downloads directory '$self_dir_disabled_tmp'"
+  [ -d "$self_dir_enabled" ]      || mkdir "$self_dir_enabled"      || log_error "Couldn't create enabled directory '$self_dir_enabled'"
+  [ -n "$(ls -A "$self_dir_disabled_tmp")" ] && { rm -rf "${self_dir_disabled_tmp:?}/"* || log_error "Failed to empty $self_dir_disabled_tmp"; }
+  log_debug "All dependencies seem okay"
+)
+
+bs_check_version() ( api_get_version_list | jq --exit-status "index(\"$bs_version\")" > /dev/null; )
+
+api_get_mod_json() ( tool_download "$api_url/mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || log_error "Couldn't get metadata for mod '$1'"; )
+
+api_get_version_list() ( tool_download "$api_url/version" || log_error "Couldn't get version list"; )
+
+api_get_mod_list() { tool_download "$api_url/mod?status=approved&gameVersion=$bs_version" | jq -r --exit-status '.[] | .name' || log_error "Couldn't get mod list from API."; }
+
+json_get_download_url() ( printf "%s%s\n" "$api_url_root" "$(printf "%s" "$1" | jq -r --exit-status '.downloads | .[0] | .url')" )
+
+json_get_hashlist() {
+  mod_name="$(json_get_name "$1")"
+  mod_location="$(tool_mod_get_location "$mod_name")"
+  if [ "$mod_location" = "none" ]
+  then
+    log_error "Mod '$mod_name' is not downloaded."
+  else
+    printf "%s\n" "$1" | jq -r --exit-status ".downloads | .[0] | .hashMd5 | .[] | [.hash,.file] | join(\"  $mod_location/\")"
+  fi
+}
+
+json_check_integrity() {
+  if md5sum_output="$(json_get_hashlist "$1" | md5sum -c)"
+  then
+    log_info "Mod '$(json_get_name "$1")' passed integrity check."
+  else
+    log_error "Mod '$(json_get_name "$1")' did not pass integrity check."
+  fi
+  log_debug "md5sum output:
+$md5sum_output"
+}
+
+json_get_dependencies() ( printf "%s" "$1" | jq -r --exit-status '.dependencies | .[] | .name' )
+
+json_get_name() ( printf "%s" "$1" | jq -r --exit-status '.name' )
+
+json_get_version() ( printf "%s" "$1" | jq -r --exit-status '.version' )
+
+json_get_dependency_tree() (
+  dependencytree="$3"
+  recursed="$2"
+  [ "$recursed" = "" ] && recursed="0"
+  log_debug "Getting data from API for '$(json_get_name "$1")'"
+  while IFS= read -r dependency
+  do
+    [ "$dependency" = "" ] || {
+      tool_find_in_array_json_name "$dependency" "$dependencytree" || {
+        dependencytree="$(json_get_dependency_tree "$(api_get_mod_json "$dependency")" "1" "$dependencytree")"
+      }
+    }
+  done <<EOF
+$(json_get_dependencies "$1")
+EOF
+  [ "$recursed" -eq 1 ] && {
+    dependencytree="$1
+$dependencytree"
+  }
+  printf "%s" "$dependencytree"
+)
+
+mod_download() (
+  if [ -d "$self_dir_disabled/$(json_get_name "$1")" ]
+  then
+    if tool_version_compare "$(json_get_version "$1")" "$(tool_split "$(cat "$self_dir_disabled/$(json_get_name "$1")/.shaber/version")" "
+" "1")"
+    then
+      log_info "'$(json_get_name "$1")' is already up-to-date"
+      exit
+    else
+      log_info "'$(json_get_name "$1")' is out-of-date; updating"
+      rm -rf "${self_dir_disabled:?}/$(json_get_name "$1")"
+    fi
+  fi
+  ( cd "$self_dir_disabled_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
+  unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
+  rm -f "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
+  mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
+  printf "%s\n%s\n" "$(json_get_version "$1")" "$bs_version" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/version"
+  printf "%s\n" "$(json_get_dependencies "$1")" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/depends"
+
+  log_info "Checking integrity of mod '$(json_get_name "$1")'."
+  json_check_integrity "$1"
+)
+
+mod_download_tree() {
+  mod_json="$(api_get_mod_json "$1")"
+  log_info "Searching for dependencies"
+  download_queue="$(json_get_dependency_tree "$mod_json")"
+  while IFS= read -r mod
+  do
+    [ "$mod" = "" ] || {
+      log_info "Downloading dependency '$(json_get_name "$mod")'"
+      mod_download "$mod"
+    }
+  done << EOF
+$download_queue
+EOF
+
+  log_info "Downloading mod '$(json_get_name "$mod_json")'"
+  mod_download "$mod_json"
+}
+
+
+mod_link() (
+  rootdir="$2"
+  [ "$rootdir" = "" ] && rootdir="$1"
+  moddir="$(printf "%s" "$1" | sed -e "s|$rootdir||g")"
+
+  [ -d "$bs_dir/$moddir" ] || mkdir "$bs_dir/$moddir"
+  while IFS= read -r item
+  do
+    [ "$item" = "" ] || {
+      log_debug "$moddir/$item"
+      [ -f "$1/$item" ] && {
+        [ -f "$bs_dir/$moddir/$item" ] && log_error "File conflict: $1/$item"
+        ln -s "$1/$item" "$bs_dir/$moddir/$item"
+      }
+      [ -d "$1/$item" ] && {
+        mod_link "$1/$item" "$rootdir"
+      }
+    }
+  done << EOF
+$(ls -1N "$1")
+
+EOF
+)
+
+mod_unlink() (
+  rootdir="$2"
+  [ "$rootdir" = "" ] && rootdir="$1"
+  log_debug "$rootdir"
+  log_debug "$1"
+  moddir="$(printf "%s" "$1" | sed -e "s|$rootdir||g")"
+
+  [ -d "$bs_dir/$moddir" ] || mkdir "$bs_dir/$moddir"
+  while IFS= read -r item
+  do
+    [ "$item" = "" ] || {
+      log_debug "$moddir/$item"
+      [ -f "$1/$item" ] && {
+        [ -f "$bs_dir/$moddir/$item" ] || log_warn "Couldn't find symlink: $bs_dir/$moddir/$item"
+        rm -f "$bs_dir/$moddir/$item"
+      }
+      [ -d "$1/$item" ] && {
+        mod_unlink "$1/$item" "$rootdir"
+      }
+    }
+  done << EOF
+$(ls -1N "$1")
+
+EOF
+
+  find "$bs_dir" -mindepth 1 -type d -empty -delete
+)
+
+mod_get_dependency_tree() (
+  mod_location="$(tool_mod_get_location "$1")"
+  dependencytree="$2"
+  recursed="$3"
+  [ "$recursed" = "" ] && recursed=0
+  if [ "$mod_location" = "none" ]
+  then
+    log_error "Couldn't find mod '$1'"
+  else
+    while IFS= read -r dependency
+    do
+      [ "$dependency" = "" ] || {
+        tool_find_in_array "$dependency" "$dependencytree" || {
+          if [ "$(tool_mod_get_location "$dependency")" = "none" ]
+          then
+            log_error "Dependency '$dependency' not downloaded"
+          else
+            dependencytree="$(mod_get_dependency_tree "$dependency" "$dependencytree" "1")"
+          fi
+        }
+      }
+    done << EOF
+$(cat "$mod_location/.shaber/depends")
+EOF
+  fi
+
+  [ "$recursed" = "1" ] && dependencytree="$1
+$dependencytree"
+
+  printf "%s" "$dependencytree"
+)
+
+mod_enable() (
+  mod_location="$(tool_mod_get_location "$1")"
+  if [ "$mod_location" = "$self_dir_enabled/$1" ]
+  then
+    log_info "'$1' already enabled"
+  else
+    mv "$(tool_mod_get_location "$1")" "$self_dir_enabled"
+    mod_link "$self_dir_enabled/$1"
+    log_info "Enabled '$1'"
+  fi
+)
+
+mod_enable_tree() {
+  enable_queue="$(mod_get_dependency_tree "$1")"
+  log_debug "$enable_queue"
+  while IFS= read -r dependency
+  do
+    [ "$dependency" = "" ] || {
+      mod_enable "$dependency"
+    }
+  done << EOF
+$enable_queue
+EOF
+  mod_enable "$1"
+  tool_mod_set_explicit "$1"
+}
+
+mod_disable() (
+  if [ -d "$self_dir_enabled/$1" ]
+  then
+    mod_unlink "$self_dir_enabled/$1"
+    mv "$self_dir_enabled/$1" "$self_dir_disabled/$1"
+    [ -f "$self_dir_disabled/$1/.shaber/explicit" ] && rm -f "$self_dir_disabled/$1/.shaber/explicit"
+    log_info "Disabled '$1'"
+  else
+    log_info "'$1' not enabled"
+  fi
+)
+
+mod_remove() {
+  if tool_mod_check_local "$1"
+  then
+    log_warn "Mod '$1' is not downloaded."
+  else
+    tool_mod_check_enabled "$1" && mod_disable "$1"
+    rm -rf "${self_dir_disabled:?}/${1:?}"
+    log_info "Removed '$1'"
+  fi
+}
+
+orphans_get() {
+  orphans=""
+  dependencies=""
+  dependencies_needed=""
+  explicits=""
+
+  while IFS= read -r mod
+  do
+    [ "$mod" = "" ] || {
+      if [ -f "$self_dir_enabled/$mod/.shaber/explicit" ]
+      then
+        explicits="$mod
+$explicits"
+      else
+        dependencies="$mod
+$dependencies"
+      fi
+    }
+  done << EOF
+$(ls -1N "$self_dir_enabled")
+EOF
+
+  while IFS= read -r mod
+  do
+    [ "$mod" = "" ] || {
+      dependencies_needed="$(mod_get_dependency_tree "$mod")
+$dependencies_needed"
+    }
+  done << EOF
+$explicits
+EOF
+
+  log_debug "dependencies: $dependencies"
+  log_debug "explicits: $explicits"
+  log_debug "dependencies_needed: $dependencies_needed"
+
+  dependencies_needed="$(tool_dedupe_array "$dependencies_needed")"
+
+  while IFS= read -r dependency
+  do
+    [ "$dependency" = "" ] || {
+      tool_find_in_array "$dependency" "$dependencies_needed" || {
+        orphans="$dependency
+$orphans"
+      }
+    }
+  done << EOF
+$dependencies
+EOF
+
+  printf "%s" "$orphans"
+}
+
+orphans_disable() {
+  while IFS= read -r orphan
+  do
+    [ "$orphan" = "" ] || {
+      log_debug "Disabling orphan '$orphan'"
+      mod_disable "$orphan"
+    }
+  done << EOF
+$(orphans_get)
+
+EOF
+}
+
+orphans_remove() {
+  while IFS= read -r orphan
+  do
+    [ "$orphan" = "" ] || {
+      log_debug "Removing orphan '$orphan'"
+      mod_remove "$orphan"
+    }
+  done << EOF
+$(orphans_get)
+
+EOF
+}
+
+wine_setup() {
+  log_info "Setting up wine prefix at $wine_prefix. This will take a while."
+  WINEPREFIX="$wine_prefix" winetricks -f -q dotnet461 || log_error "Failed to install DotNet 4.6.1"
+  log_info "Wine prefix at $wine_prefix has been set up."
+}
+
+wine_check() {
+  log_info "Checking validity of wine prefix at $wine_prefix."
+
+  [ -d "$wine_prefix" ] || log_error "Wine prefix at $wine_prefix does not exist."
+
+  [ -f "$wine_prefix/drive_c/windows/Microsoft.NET/Framework/v4.0.30319/Microsoft.CSharp.dll" ] || log_error "Wine prefix at $wine_prefix lacks the expected dotnet installation."
+
+  log_info "Wine prefix at $wine_prefix is valid."
+
+  return 0
+}
+
+bs_patch() {
+  tool_mod_check_local "BSIPA"    || log_error "BSIPA is not downloaded or enabled."
+  tool_mod_check_enabled "BSIPA"  || log_error "BSIPA is not enabled."
+  log_info "BSIPA is enabled."
+
+  wine_check
+
+  log_info "All checks passed, continuing to patch..."
+
+  (
+    cd "$bs_dir"
+    WINEPREFIX="$wine_prefix" wine ./IPA.exe "Beat Saber.exe" -n
+
+    grep -Fxq '"winhttp"="native,builtin"' "$bs_dir/../../compatdata/620980/pfx/user.reg" || (
+      echo '[Software\\Wine\\DllOverrides]
+"winhttp"="native,builtin"' >> "$bs_dir/../../compatdata/620980/pfx/user.reg" ) || log_error "Failed to add DllOverrides to user.reg"
+    )
+
+  log_info "Beat Saber has been successfully patched with BSIPA."
+}
+
+args_parse() {
+  OPT_HELP=0
+  OPT_VERSION=0
+
+  # Parse options
+
+  for arg
+  do
+    shift
+    case "$arg" in
+      --help|-h|-\?)
+        OPT_HELP=1;;
+      --version|-v)
+        OPT_VERSION=1;;
+      --verbose|-V)
+        self_enable_debug ;;
+      --*|-*)
+        log_error "Invalid option '$arg'";;
+      *)
+        set -- "$@" "$arg";;
+    esac
+  done
+
+  # Parse arguments
+
+  [ $# -lt 2 ] && OPT_HELP=1
+
+  [ $OPT_HELP = 1 ]    && { parse_helper_help "$@"; exit; }
+  [ $OPT_VERSION = 1 ] && { self_get_version; exit; }
+
+  opt=$1; shift
+
+  case $opt in
+    mod) parse_helper_mod "$@";;
+    orphans) parse_helper_orphans "$@";;
+    wine) parse_helper_wine "$@";;
+    ipa) parse_helper_ipa "$@";;
+    *) log_error "Mode '$opt' not recognised.";;
+  esac
+}
+
+parse_helper_help() {
+  case "$1" in
+    mod)
+    usage_message="$0 [options] $1 <action> [arguments...]
+
+-h, --help    | Output this help page. Specific pages exist for each mode.
+-v, --version | Output the version of this script.
+-V, --verbose | Output a more detailed log for debugging.
+
+These are all available actions:
+
+download  | Download (a) mod(s) from beatmods.com. Accepts at least one
+          | argument. All dependencies will also be downloaded.
+enable    | Enable (a) disabled mod(s). Accepts at least one argument.
+          | All dependencies will also be activated.
+disable   | Disables (an) enabled mod(s). Accepts at least one argument.
+remove    | Deletes (a) mod(s) (enabled or disabled) entirely.
+list      | Accepts one of 4 arguments: api, all, enabled, disabled, orphaned.
+          | With api, all mods on beatmods.com will be listed. The other 3 are
+          | self-explanatory.
+settype   | Accepts one of two arguments: dependency, explicit. This allows mods
+          | to be set as explicitly installed, or as a dependency. Dependencies
+          | will automatically be removed if no mods depend on them. After this
+          | first argument, any number of mods can be set as arguments to perform
+          | the action on."
+    ;;
+    orphans)
+    usage_message="$0 [options] $1 <action> [arguments...]
+
+-h, --help    | Output this help page. Specific pages exist for each mode.
+-v, --version | Output the version of this script.
+-V, --verbose | Output a more detailed log for debugging.
+
+These are all available actions:
+
+disable     | Disables all orphaned dependencies.
+remove      | Deletes all orphaned dependencies.
+setexplicit | Sets all orphaned dependencies as explicitly installed."
+    ;;
+    wine)
+    usage_message="$0 [options] $1 <action> [arguments...]
+
+-h, --help    | Output this help page. Specific pages exist for each mode.
+-v, --version | Output the version of this script.
+-V, --verbose | Output a more detailed log for debugging.
+
+These are all available actions:
+
+validate | Checks that the wine prefix used for patching Beat Saber is valid.
+setup    | Sets up the wine prefix used for patching Beat Saber."
+    ;;
+    ipa)
+    usage_message="$0 [options] $1 <action> [arguments...]
+
+-h, --help    | Output this help page. Specific pages exist for each mode.
+-v, --version | Output the version of this script.
+-V, --verbose | Output a more detailed log for debugging.
+
+These are all available actions:
+
+patch | Patches Beat Saber with IPA.exe, using the wine prefix."
+    ;;
+    *)
+    usage_message="$0 [options] <mode> <action> [arguments...]
+
+-h, --help    | Output this help page. Specific pages exist for each mode.
+-v, --version | Output the version of this script.
+-V, --verbose | Output a more detailed log for debugging.
+
+These are all available modes:
+
+mod  | Manage mods, including downloading, enabling, and disabling.
+wine | Manage the wine prefix used for BSIPA.
+ipa  | Only one action -- patch. Patches Beat Saber with IPA.exe"
+    ;;
+  esac
+  log "Usage" "$usage_message"
+}
+
+parse_helper_mod() {
+  opt=$1; shift
+  case $opt in
+    download) parse_helper_mod_download "$@";;
+    enable) parse_helper_mod_enable "$@";;
+    disable) parse_helper_mod_disable "$@";;
+    remove) parse_helper_mod_remove "$@";;
+    list) parse_helper_mod_list "$@";;
+    settype) parse_helper_mod_settype "$@";;
+    *) log_error "Invalid action '$opt'"
+  esac
+}
+
+parse_helper_mod_download() {
+  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  config_get
+  self_check_dependencies
+  for arg
+  do
+    mod_download_tree "$arg"
+  done
+}
+
+parse_helper_mod_enable() {
+  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  config_get
+  self_check_dependencies
+  for arg
+  do
+    mod_enable_tree "$arg"
+  done
+}
+
+parse_helper_mod_disable() {
+  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  config_get
+  self_check_dependencies
+  for arg
+  do
+    mod_disable "$arg"
+  done
+  [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can disable them with the command '$0 orphans disable'"
+}
+
+parse_helper_mod_remove() {
+  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  config_get
+  self_check_dependencies
+  for arg
+  do
+    mod_remove "$arg"
+  done
+  [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can remove them with the command '$0 orphans remove'"
+}
+
+parse_helper_mod_list() {
+  [ $# -eq 0 ] && log_error "Argument expected, but not given."
+  [ $# -gt 1 ] && log_error "Multiple arguments given, only one expected."
+  config_get
+  self_check_dependencies
+  case "$1" in
+    api) api_get_mod_list;;
+    all) tool_mod_list_all;;
+    enabled) tool_mod_list_enabled;;
+    disabled) tool_mod_list_disabled;;
+  esac
+}
+
+parse_helper_mod_settype() {
+  [ $# -lt 2 ] && log_error "Two or more arguments expected, but $# given."
+  mod_type="$1"; shift
+  [ "$mod_type" = "explicit" ] || [ "$mod_type" = "dependency" ] || log_error "First argument must be either 'explicit' or 'dependency'."
+  config_get
+  self_check_dependencies
+  for arg
+  do
+    [ "$mod_type" = "explicit" ]   && tool_mod_set_explicit "$arg"
+    [ "$mod_type" = "dependency" ] && tool_mod_unset_explicit "$arg"
+  done
+}
+
+parse_helper_orphans() {
+  opt=$1; shift
+  case $opt in
+    disable) parse_helper_orphans_disable "$@";;
+    remove) parse_helper_orphans_remove "$@";;
+    *) log_error "Invalid action '$opt'"
+  esac
+}
+
+parse_helper_orphans_disable() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  orphans_disable
+}
+
+parse_helper_orphans_remove() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  orphans_remove
+}
+
+parse_helper_wine() {
+  opt=$1; shift
+  case $opt in
+    validate) parse_helper_wine_validate "$@";;
+    setup) parse_helper_wine_setup "$@";;
+    *) log_error "Invalid action '$opt'"
+  esac
+}
+
+parse_helper_wine_validate() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  wine_check
+}
+
+parse_helper_wine_setup() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  wine_setup
+}
+
+parse_helper_ipa() {
+  opt=$1; shift
+  case $opt in
+    patch) parse_helper_ipa_patch "$@";;
+    *) log_error "Invalid action '$opt'"
+  esac
+}
+
+parse_helper_ipa_patch() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  bs_patch
+}
+
+args_parse "$@"
