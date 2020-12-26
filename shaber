@@ -17,7 +17,8 @@
 
 ### TODO ###
 # Better error catching
-# Mod updates
+# Clean up mod_download (incl replacing update with a simple version check and error)
+# Operations on all mods
 # Detailed commenting for maintainability
 # Self-updating
 # Shorten inefficient code
