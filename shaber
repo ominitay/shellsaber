@@ -385,11 +385,11 @@ mod_disable() (
 mod_remove() {
   if tool_mod_check_local "$1"
   then
-    log_warn "Mod '$1' is not downloaded."
-  else
     tool_mod_check_enabled "$1" && mod_disable "$1"
     rm -rf "${self_dir_disabled:?}/${1:?}"
     log_info "Removed '$1'"
+  else
+    log_warn "Mod '$1' is not downloaded."
   fi
 }
 
@@ -469,6 +469,63 @@ orphans_remove() {
   done << EOF
 $(orphans_get)
 
+EOF
+}
+
+mod_check_update() {
+  if [ "$(tool_mod_get_location "$1")" = "none" ]
+  then
+    log_error "Mod '$1' not downloaded or installed."
+  else
+    if tool_version_compare "$(json_get_version "$(api_get_mod_json "$1")")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
+" "1")"
+    then
+      log_info "Mod '$1' is up-to-date"
+    else
+      log_info "Mod '$1' is out-of-date; update with the command '$0 mod update $1'"
+    fi
+  fi
+}
+
+mod_check_update_all() {
+  while IFS= read -r mod
+  do
+    mod_check_update "$mod"
+  done <<EOF
+$(tool_mod_list_all)
+EOF
+}
+
+mod_update() {
+  if [ "$(tool_mod_get_location "$1")" = "none" ]
+  then
+    log_error "Mod '$1' not downloaded or installed."
+  else
+    mod_json="$(api_get_mod_json "$1")"
+    if tool_version_compare "$(json_get_version "$mod_json")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
+" "1")"
+    then
+      log_info "Mod '$1' is up-to-date"
+    else
+      mod_enabled=0; tool_mod_check_enabled "$1" && mod_enabled=1
+      mod_type="dependency"; [ -f "$self_dir_enabled/$1/.shaber/explicit" ] && mod_type="explicit"
+      log_info "Mod '$1' is out-of-date; proceeding to update"
+      mod_remove "$1"
+      log_info "Downloading mod '$1'"
+      mod_download "$mod_json"
+      [ $mod_enabled -eq 1 ] && mod_enable "$1"
+      [ "$mod_type" = "explicit" ] && tool_mod_set_explicit "$1"
+      log_info "Updated mod '$1'"
+    fi
+  fi
+}
+
+mod_update_all() {
+  while IFS= read -r mod
+  do
+    mod_update "$mod"
+  done <<EOF
+$(tool_mod_list_all)
 EOF
 }
 
@@ -563,20 +620,24 @@ parse_helper_help() {
 
 These are all available actions:
 
-download  | Download (a) mod(s) from beatmods.com. Accepts at least one
-          | argument. All dependencies will also be downloaded.
-enable    | Enable (a) disabled mod(s). Accepts at least one argument.
-          | All dependencies will also be activated.
-disable   | Disables (an) enabled mod(s). Accepts at least one argument.
-remove    | Deletes (a) mod(s) (enabled or disabled) entirely.
-list      | Accepts one of 4 arguments: api, all, enabled, disabled, orphaned.
-          | With api, all mods on beatmods.com will be listed. The other 3 are
-          | self-explanatory.
-settype   | Accepts one of two arguments: dependency, explicit. This allows mods
-          | to be set as explicitly installed, or as a dependency. Dependencies
-          | will automatically be removed if no mods depend on them. After this
-          | first argument, any number of mods can be set as arguments to perform
-          | the action on."
+download    | Download (a) mod(s) from beatmods.com. Accepts at least one
+            | argument. All dependencies will also be downloaded.
+update      | Checks the version(s) of (a) mod(s), and updates them if out of
+            | date.
+checkupdate | Checks the version(s) of (a) mod(s), and updates them if out of
+            | date.
+enable      | Enable (a) disabled mod(s). Accepts at least one argument.
+            | All dependencies will also be activated.
+disable     | Disables (an) enabled mod(s). Accepts at least one argument.
+remove      | Deletes (a) mod(s) (enabled or disabled) entirely.
+list        | Accepts one of 4 arguments: api, all, enabled, disabled, orphaned.
+            | With api, all mods on beatmods.com will be listed. The other 3 are
+            | self-explanatory.
+settype     | Accepts one of two arguments: dependency, explicit. This allows mods
+            | to be set as explicitly installed, or as a dependency. Dependencies
+            | will automatically be removed if no mods depend on them. After this
+            | first argument, any number of mods can be set as arguments to perform
+            | the action on."
     ;;
     orphans)
     usage_message="$0 [options] $1 <action> [arguments...]
@@ -635,6 +696,8 @@ parse_helper_mod() {
   opt=$1; shift
   case $opt in
     download) parse_helper_mod_download "$@";;
+    update) parse_helper_mod_update "$@";;
+    checkupdate) parse_helper_mod_checkupdate "$@";;
     enable) parse_helper_mod_enable "$@";;
     disable) parse_helper_mod_disable "$@";;
     remove) parse_helper_mod_remove "$@";;
@@ -651,6 +714,26 @@ parse_helper_mod_download() {
   for arg
   do
     mod_download_tree "$arg"
+  done
+}
+
+parse_helper_mod_update() {
+  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  config_get
+  self_check_dependencies
+  for arg
+  do
+    mod_update "$arg"
+  done
+}
+
+parse_helper_mod_checkupdate() {
+  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  config_get
+  self_check_dependencies
+  for arg
+  do
+    mod_check_update "$arg"
   done
 }
 
