@@ -842,6 +842,7 @@ parse_helper_mod_list() {
     all) tool_mod_list_all;;
     enabled) tool_mod_list_enabled;;
     disabled) tool_mod_list_disabled;;
+    orphaned) orphans_get;;
   esac
 }
 
