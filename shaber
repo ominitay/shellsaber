@@ -101,6 +101,24 @@ tool_mod_unset_explicit () {
   fi
 }
 
+tool_mod_set_explicit_all() {
+  while IFS= read -r mod
+  do
+    [ "$mod" = "" ] || tool_mod_set_explicit "$mod"
+  done <<EOF
+$(tool_mod_list_enabled)
+EOF
+}
+
+tool_mod_unset_explicit_all() {
+  while IFS= read -r mod
+  do
+    [ "$mod" = "" ] || tool_mod_unset_explicit "$mod"
+  done <<EOF
+$(tool_mod_list_enabled)
+EOF
+}
+
 tool_urlencode() ( printf "%s" "$1" | jq -Rr '@uri'; )
 
 tool_split() ( printf "%s" "$1" | cut -d "$2" -f "$3"; )
@@ -383,6 +401,34 @@ mod_remove() {
   else
     log_warn "Mod '$1' is not downloaded."
   fi
+}
+
+mod_enable_all() {
+  while IFS= read -r mod
+  do
+    mod_enable "$mod"
+    tool_mod_set_explicit "$mod"
+  done <<EOF
+$(tool_mod_list_disabled)
+EOF
+}
+
+mod_disable_all() {
+  while IFS= read -r mod
+  do
+    mod_disable "$mod"
+  done <<EOF
+$(tool_mod_list_enabled)
+EOF
+}
+
+mod_remove_all() {
+  while IFS= read -r mod
+  do
+    mod_remove "$mod"
+  done <<EOF
+$(tool_mod_list_all)
+EOF
 }
 
 orphans_get() {
@@ -715,7 +761,12 @@ parse_helper_mod_update() {
   self_check_dependencies
   for arg
   do
-    mod_update "$arg"
+    if [ "$arg" = "all" ]
+    then
+      mod_update_all
+    else
+      mod_update "$arg"
+    fi
   done
 }
 
@@ -725,7 +776,12 @@ parse_helper_mod_checkupdate() {
   self_check_dependencies
   for arg
   do
-    mod_check_update "$arg"
+    if [ "$arg" = "all" ]
+    then
+      mod_check_update_all
+    else
+      mod_check_update "$arg"
+    fi
   done
 }
 
@@ -735,7 +791,12 @@ parse_helper_mod_enable() {
   self_check_dependencies
   for arg
   do
-    mod_enable_tree "$arg"
+    if [ "$arg" = "all" ]
+    then
+      mod_enable_all
+    else
+      mod_enable_tree "$arg"
+    fi
   done
 }
 
@@ -745,7 +806,12 @@ parse_helper_mod_disable() {
   self_check_dependencies
   for arg
   do
-    mod_disable "$arg"
+    if [ "$arg" = "all" ]
+    then
+      mod_disable_all
+    else
+      mod_disable "$arg"
+    fi
   done
   [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can disable them with the command '$0 orphans disable'"
 }
@@ -756,7 +822,12 @@ parse_helper_mod_remove() {
   self_check_dependencies
   for arg
   do
-    mod_remove "$arg"
+    if [ "$arg" = "all" ]
+    then
+      mod_remove_all
+    else
+      mod_remove "$arg"
+    fi
   done
   [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can remove them with the command '$0 orphans remove'"
 }
@@ -782,8 +853,14 @@ parse_helper_mod_settype() {
   self_check_dependencies
   for arg
   do
-    [ "$mod_type" = "explicit" ]   && tool_mod_set_explicit "$arg"
-    [ "$mod_type" = "dependency" ] && tool_mod_unset_explicit "$arg"
+    if [ "$arg" = "all" ]
+    then
+      [ "$mod_type" = "explicit" ]   && tool_mod_set_explicit_all "$arg"
+      [ "$mod_type" = "dependency" ] && tool_mod_unset_explicit_all "$arg"
+    else
+      [ "$mod_type" = "explicit" ]   && tool_mod_set_explicit "$arg"
+      [ "$mod_type" = "dependency" ] && tool_mod_unset_explicit "$arg"
+    fi
   done
 }
 
