@@ -168,7 +168,15 @@ self_check_dependencies() (
 
 bs_check_version() ( api_get_version_list | jq --exit-status "index(\"$bs_version\")" > /dev/null; )
 
-api_get_mod_json() ( tool_download "$api_url/mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || log_error "Couldn't get metadata for mod '$1'"; )
+api_get_mod_json() (
+  mod_json="$(tool_download "$api_url/mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || log_error "Couldn't get metadata for mod '$1'")"
+  if [ "$1" = "$(json_get_name "$mod_json")" ]
+  then
+    printf "%s\n" "$mod_json"
+  else
+    log_error "Couldn't find mod '$1'"
+  fi
+)
 
 api_get_version_list() ( tool_download "$api_url/version" || log_error "Couldn't get version list"; )
 
