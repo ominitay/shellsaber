@@ -15,15 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-### TODO ###
-# Better error catching
-# Clean up mod_download (incl replacing update with a simple version check and error)
-# Operations on all mods
-# Detailed commenting for maintainability
-# Self-updating
-# Shorten inefficient code
-# Add Linux-native IPA (waiting on geefr for that one...)
-
 self_dir_config="$HOME/.config/shaber"
 self_dir_config_default="$HOME/Devel/ShellSaber"
 
