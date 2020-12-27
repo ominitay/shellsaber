@@ -235,27 +235,20 @@ $dependencytree"
 )
 
 mod_download() (
-  if [ -d "$self_dir_disabled/$(json_get_name "$1")" ]
+  if [ "$(tool_mod_get_location "$1")" = none ]
   then
-    if tool_version_compare "$(json_get_version "$1")" "$(tool_split "$(cat "$self_dir_disabled/$(json_get_name "$1")/.shaber/version")" "
-" "1")"
-    then
-      log_info "'$(json_get_name "$1")' is already up-to-date"
-      exit
-    else
-      log_info "'$(json_get_name "$1")' is out-of-date; updating"
-      rm -rf "${self_dir_disabled:?}/$(json_get_name "$1")"
-    fi
-  fi
-  ( cd "$self_dir_disabled_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
-  unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
-  rm -f "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
-  mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
-  printf "%s\n%s\n" "$(json_get_version "$1")" "$bs_version" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/version"
-  printf "%s\n" "$(json_get_dependencies "$1")" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/depends"
+    ( cd "$self_dir_disabled_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
+    unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
+    rm -f "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
+    mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
+    printf "%s\n%s\n" "$(json_get_version "$1")" "$bs_version" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/version"
+    printf "%s\n" "$(json_get_dependencies "$1")" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/depends"
 
-  log_info "Checking integrity of mod '$(json_get_name "$1")'."
-  json_check_integrity "$1"
+    log_info "Checking integrity of mod '$(json_get_name "$1")'."
+    json_check_integrity "$1"
+  else
+    log_warn "Mod '$1' is already downloaded. Run '$0 mod update $1' to update it."
+  fi
 )
 
 mod_download_tree() {
