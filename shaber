@@ -183,7 +183,7 @@ self_get_version() { printf "shaber-%s\n" "$self_version"; }
 
 self_check_command() ( command -v "$1" > /dev/null; )
 
-self_check_dependencies() (
+self_check_dependencies() {
   log_debug "Checking dependencies"
   self_check_command "jq"         || log_error "jq is not installed"
   self_check_command "curl"       || log_error "curl is not installed"
@@ -198,7 +198,7 @@ self_check_dependencies() (
   [ -d "$self_dir_enabled" ]      || mkdir "$self_dir_enabled"      || log_error "Couldn't create enabled directory '$self_dir_enabled'"
   [ -n "$(ls -A "$self_dir_disabled_tmp")" ] && { rm -rf "${self_dir_disabled_tmp:?}/"* || log_error "Failed to empty $self_dir_disabled_tmp"; }
   log_debug "All dependencies seem okay"
-)
+}
 
 bs_check_version() ( api_get_version_list | jq --exit-status "index(\"$bs_version\")" > /dev/null; )
 
