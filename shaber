@@ -418,15 +418,10 @@ EOF
 mod_disable() (
   if [ -d "$self_dir_enabled/$1" ]
   then
-    if tool_mod_check_dependency "$1"
-    then
-      log_error "Mod '$1' is depended upon, and connot be disabled."
-    else
-      mod_unlink "$self_dir_enabled/$1"
-      mv "$self_dir_enabled/$1" "$self_dir_disabled/$1"
-      [ -f "$self_dir_disabled/$1/.shaber/explicit" ] && rm -f "$self_dir_disabled/$1/.shaber/explicit"
-      log_info "Disabled '$1'"
-    fi
+    mod_unlink "$self_dir_enabled/$1"
+    mv "$self_dir_enabled/$1" "$self_dir_disabled/$1"
+    [ -f "$self_dir_disabled/$1/.shaber/explicit" ] && rm -f "$self_dir_disabled/$1/.shaber/explicit"
+    log_info "Disabled '$1'"
   else
     log_info "'$1' not enabled"
   fi
@@ -435,14 +430,9 @@ mod_disable() (
 mod_remove() {
   if tool_mod_check_local "$1"
   then
-    if tool_mod_check_dependency "$1"
-    then
-      log_error "Mod '$1' is depended upon, and cannot be removed."
-    else
-      tool_mod_check_enabled "$1" && mod_disable "$1"
-      rm -rf "${self_dir_disabled:?}/${1:?}"
-      log_info "Removed '$1'"
-    fi
+    tool_mod_check_enabled "$1" && mod_disable "$1"
+    rm -rf "${self_dir_disabled:?}/${1:?}"
+    log_info "Removed '$1'"
   else
     log_warn "Mod '$1' is not downloaded."
   fi
@@ -855,6 +845,7 @@ parse_helper_mod_disable() {
     then
       mod_disable_all
     else
+      tool_mod_check_dependency "$arg" && log_error "Mod '$arg' is depended upon, and cannot be disabled."
       mod_disable "$arg"
     fi
   done
@@ -871,6 +862,7 @@ parse_helper_mod_remove() {
     then
       mod_remove_all
     else
+      tool_mod_check_dependency "$arg" && log_error "Mod '$arg' is depended upon, and cannot be removed."
       mod_remove "$arg"
     fi
   done
