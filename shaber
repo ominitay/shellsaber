@@ -145,6 +145,40 @@ tool_dedupe_array() ( printf "%s" "$1" | awk '!seen[$0]++' )
 
 tool_version_compare() { [ "$1" = "$(printf "%s\n%s" "$1" "$2" | sort -V | head -n1)" ]; }
 
+tool_mod_check_dependency() {
+  dependencies=""
+  dependencies_needed=""
+  explicits=""
+
+  while IFS= read -r mod
+  do
+    [ "$mod" = "" ] || {
+      if [ -f "$self_dir_enabled/$mod/.shaber/explicit" ]
+      then
+        explicits="$mod
+$explicits"
+      else
+        dependencies="$mod
+$dependencies"
+      fi
+    }
+  done << EOF
+$(ls -1N "$self_dir_enabled")
+EOF
+
+  while IFS= read -r mod
+  do
+    [ "$mod" = "" ] || {
+      dependencies_needed="$(mod_get_dependency_tree "$mod")
+$dependencies_needed"
+    }
+  done << EOF
+$explicits
+EOF
+
+  tool_find_in_array "$1" "$dependencies_needed"
+}
+
 self_get_version() { printf "shaber-%s\n" "$self_version"; }
 
 self_check_command() ( command -v "$1" > /dev/null; )
@@ -384,10 +418,15 @@ EOF
 mod_disable() (
   if [ -d "$self_dir_enabled/$1" ]
   then
-    mod_unlink "$self_dir_enabled/$1"
-    mv "$self_dir_enabled/$1" "$self_dir_disabled/$1"
-    [ -f "$self_dir_disabled/$1/.shaber/explicit" ] && rm -f "$self_dir_disabled/$1/.shaber/explicit"
-    log_info "Disabled '$1'"
+    if tool_mod_check_dependency "$1"
+    then
+      log_error "Mod '$1' is depended upon, and connot be disabled."
+    else
+      mod_unlink "$self_dir_enabled/$1"
+      mv "$self_dir_enabled/$1" "$self_dir_disabled/$1"
+      [ -f "$self_dir_disabled/$1/.shaber/explicit" ] && rm -f "$self_dir_disabled/$1/.shaber/explicit"
+      log_info "Disabled '$1'"
+    fi
   else
     log_info "'$1' not enabled"
   fi
@@ -396,9 +435,14 @@ mod_disable() (
 mod_remove() {
   if tool_mod_check_local "$1"
   then
-    tool_mod_check_enabled "$1" && mod_disable "$1"
-    rm -rf "${self_dir_disabled:?}/${1:?}"
-    log_info "Removed '$1'"
+    if tool_mod_check_dependency "$1"
+    then
+      log_error "Mod '$1' is depended upon, and cannot be removed."
+    else
+      tool_mod_check_enabled "$1" && mod_disable "$1"
+      rm -rf "${self_dir_disabled:?}/${1:?}"
+      log_info "Removed '$1'"
+    fi
   else
     log_warn "Mod '$1' is not downloaded."
   fi
