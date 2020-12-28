@@ -620,7 +620,7 @@ wine_check() {
   return 0
 }
 
-bs_patch() {
+ipa_patch() {
   tool_mod_check_local "BSIPA"    || log_error "BSIPA is not downloaded or enabled."
   tool_mod_check_enabled "BSIPA"  || log_error "BSIPA is not enabled."
   log_info "BSIPA is enabled."
@@ -960,7 +960,7 @@ parse_helper_ipa_patch() {
   [ $# -gt 0 ] && log_error "No arguments expected."
   config_get
   self_check_dependencies
-  bs_patch
+  ipa_patch
 }
 
 args_parse "$@"
