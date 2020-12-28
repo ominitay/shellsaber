@@ -23,6 +23,8 @@ self_dir_disabled="$self_dir_root/downloads"
 self_dir_disabled_tmp="$self_dir_root/tmp"
 self_dir_enabled="$self_dir_root/installed"
 
+ipa_native_dir="$self_dir_root/ipa"
+
 self_version=0.1
 
 log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
@@ -639,6 +641,31 @@ ipa_patch() {
     )
 
   log_info "Beat Saber has been successfully patched with BSIPA."
+}
+
+ipa_native_download_latest() {
+  ipa_latest_version="$(curl -fsL -H 'Accept: application/json' "https://github.com/geefr/BSIPA-Linux/releases/latest" | jq -r ".tag_name")"
+
+  if [ -d "$ipa_native_dir" ]
+  then
+    if tool_version_compare "$ipa_latest_version" "$(cat "$ipa_native_dir/version")"
+    then
+      log_info "Native Linux IPA is already up-to-date"
+      return
+    else
+      log_info "Native Linux IPA is out-of-date; updating"
+      log_debug "Removing old Native Linux IPA"
+      rm -rf "${ipa_native_dir:?}"
+    fi
+  fi
+
+  mkdir "$ipa_native_dir"
+
+  log_info "Downloading native Linux IPA"
+  tool_download "https://github.com/geefr/BSIPA-Linux/releases/download/$ipa_latest_version/IPA-Minimal" > "$self_dir_disabled_tmp/IPA-Minimal"
+  mv "$self_dir_disabled_tmp/IPA-Minimal" "$ipa_native_dir/IPA-Minimal"
+  log_info "Native Linux IPA successfully download"
+  printf "%s\n" "$ipa_latest_version" > "$ipa_native_dir/version"
 }
 
 args_parse() {
