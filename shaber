@@ -20,7 +20,7 @@ self_dir_config_default="$HOME/Devel/ShellSaber"
 
 self_dir_root="$HOME/Devel/ShellSaber"
 self_dir_disabled="$self_dir_root/downloads"
-self_dir_disabled_tmp="$self_dir_root/tmp"
+self_dir_tmp="$self_dir_root/tmp"
 self_dir_enabled="$self_dir_root/installed"
 
 ipa_native_dir="$self_dir_root/ipa"
@@ -196,9 +196,9 @@ self_check_dependencies() {
   [ -d "$bs_dir" ]                || log_error "Cannot find Beat Saber's directory"
   [ -d "$self_dir_root" ]         || mkdir "$self_dir_root"         || log_error "Couldn't create root directory '$self_dir_root'"
   [ -d "$self_dir_disabled" ]     || mkdir "$self_dir_disabled"     || log_error "Couldn't create disabled directory '$self_dir_disabled'"
-  [ -d "$self_dir_disabled_tmp" ] || mkdir "$self_dir_disabled_tmp" || log_error "Couldn't create downloads directory '$self_dir_disabled_tmp'"
+  [ -d "$self_dir_tmp" ] || mkdir "$self_dir_tmp" || log_error "Couldn't create downloads directory '$self_dir_tmp'"
   [ -d "$self_dir_enabled" ]      || mkdir "$self_dir_enabled"      || log_error "Couldn't create enabled directory '$self_dir_enabled'"
-  [ -n "$(ls -A "$self_dir_disabled_tmp")" ] && { rm -rf "${self_dir_disabled_tmp:?}/"* || log_error "Failed to empty $self_dir_disabled_tmp"; }
+  [ -n "$(ls -A "$self_dir_tmp")" ] && { rm -rf "${self_dir_tmp:?}/"* || log_error "Failed to empty $self_dir_tmp"; }
   log_debug "All dependencies seem okay"
 }
 
@@ -273,9 +273,9 @@ $dependencytree"
 mod_download() (
   if [ "$(tool_mod_get_location "$1")" = none ]
   then
-    ( cd "$self_dir_disabled_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
-    unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
-    rm -f "$self_dir_disabled_tmp/$(basename "$(json_get_download_url "$1")")"
+    ( cd "$self_dir_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
+    unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
+    rm -f "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
     mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
     printf "%s\n%s\n" "$(json_get_version "$1")" "$bs_version" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/version"
     printf "%s\n" "$(json_get_dependencies "$1")" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/depends"
@@ -662,8 +662,8 @@ ipa_native_download_latest() {
   mkdir "$ipa_native_dir"
 
   log_info "Downloading native Linux IPA"
-  tool_download "https://github.com/geefr/BSIPA-Linux/releases/download/$ipa_latest_version/IPA-Minimal" > "$self_dir_disabled_tmp/IPA-Minimal"
-  mv "$self_dir_disabled_tmp/IPA-Minimal" "$ipa_native_dir/IPA-Minimal"
+  tool_download "https://github.com/geefr/BSIPA-Linux/releases/download/$ipa_latest_version/IPA-Minimal" > "$self_dir_tmp/IPA-Minimal"
+  mv "$self_dir_tmp/IPA-Minimal" "$ipa_native_dir/IPA-Minimal"
   log_info "Native Linux IPA successfully download"
   printf "%s\n" "$ipa_latest_version" > "$ipa_native_dir/version"
 }
