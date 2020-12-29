@@ -15,17 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-self_dir_config="$HOME/.config/shaber"
-self_dir_config_default="$HOME/Devel/ShellSaber"
-
-self_dir_root="$HOME/Devel/ShellSaber"
-self_dir_disabled="$self_dir_root/downloads"
+self_dir_root="$HOME/.local/share/shaber"
+self_dir_disabled="$self_dir_root/disabled"
 self_dir_tmp="$self_dir_root/tmp"
-self_dir_enabled="$self_dir_root/installed"
+self_dir_enabled="$self_dir_root/enabled"
 
 ipa_native_dir="$self_dir_root/ipa"
 
-self_version=0.1
+self_dir_config="$HOME/.config/shaber"
+self_dir_config_default="$self_dir_root/default"
+
+self_version=0.1.0
 
 log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
 log_debug() { return 0; }
@@ -283,7 +283,7 @@ mod_download() (
     log_info "Checking integrity of mod '$(json_get_name "$1")'."
     json_check_integrity "$1"
   else
-    log_warn "Mod '$1' is already downloaded. Run '$0 mod update $1' to update it."
+    log_warn "Mod '$1' is already downloaded. Run 'shaber mod update $1' to update it."
   fi
 )
 
@@ -557,7 +557,7 @@ mod_check_update() {
     then
       log_info "Mod '$1' is up-to-date"
     else
-      log_info "Mod '$1' is out-of-date; update with the command '$0 mod update $1'"
+      log_info "Mod '$1' is out-of-date; update with the command 'shaber mod update $1'"
     fi
   fi
 }
@@ -708,7 +708,7 @@ args_parse() {
 parse_helper_help() {
   case "$1" in
     mod)
-    usage_message="$0 [options] $1 <action> [arguments...]
+    usage_message="shaber [options] $1 <action> [arguments...]
 
 -h, --help    | Output this help page. Specific pages exist for each mode.
 -v, --version | Output the version of this script.
@@ -739,7 +739,7 @@ Note: The actions update, checkupdate, enable, disable, and remove may be run
       with the argument 'all' to run the action on all applicable mods."
     ;;
     orphans)
-    usage_message="$0 [options] $1 <action> [arguments...]
+    usage_message="shaber [options] $1 <action> [arguments...]
 
 -h, --help    | Output this help page. Specific pages exist for each mode.
 -v, --version | Output the version of this script.
@@ -752,7 +752,7 @@ remove      | Deletes all orphaned dependencies.
 setexplicit | Sets all orphaned dependencies as explicitly installed."
     ;;
     ipa)
-    usage_message="$0 [options] $1 <action> [arguments...]
+    usage_message="shaber [options] $1 <action> [arguments...]
 
 -h, --help    | Output this help page. Specific pages exist for each mode.
 -v, --version | Output the version of this script.
@@ -764,7 +764,7 @@ download | Downloads the BSIPA mod, and the native IPA port by geefr.
 patch    | Patches Beat Saber with BSIPA, using the native Linux port by geefr."
     ;;
     *)
-    usage_message="$0 [options] <mode> <action> [arguments...]
+    usage_message="shaber [options] <mode> <action> [arguments...]
 
 -h, --help    | Output this help page. Specific pages exist for each mode.
 -v, --version | Output the version of this script.
@@ -803,7 +803,7 @@ parse_helper_mod_download() {
   do
     if [ "$arg" = "BSIPA" ]
     then
-      log_warn "Please download '$arg' with '$0 ipa download'"
+      log_warn "Please download '$arg' with 'shaber ipa download'"
     else
       mod_download_tree "$arg"
     fi
@@ -869,7 +869,7 @@ parse_helper_mod_disable() {
       mod_disable "$arg"
     fi
   done
-  [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can disable them with the command '$0 orphans disable'"
+  [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can disable them with the command 'shaber orphans disable'"
 }
 
 parse_helper_mod_remove() {
@@ -886,7 +886,7 @@ parse_helper_mod_remove() {
       mod_remove "$arg"
     fi
   done
-  [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can remove them with the command '$0 orphans remove'"
+  [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can remove them with the command 'shaber orphans remove'"
 }
 
 parse_helper_mod_list() {
