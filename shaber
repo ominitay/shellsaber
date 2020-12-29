@@ -668,6 +668,27 @@ ipa_native_download_latest() {
   printf "%s\n" "$ipa_latest_version" > "$ipa_native_dir/version"
 }
 
+ipa_native_patch() {
+  tool_mod_check_local "BSIPA"    || log_error "BSIPA is not downloaded or enabled."
+  tool_mod_check_enabled "BSIPA"  || log_error "BSIPA is not enabled."
+  log_info "BSIPA is enabled."
+
+  [ -d "$ipa_native_dir" ] || log_error "Native Linux IPA is not downloaded."
+
+  log_info "All checks passed, continuing to patch..."
+
+  (
+    cd "$bs_dir"
+    $ipa_native_dir/IPA-Minimal "Beat Saber.exe" -n -f
+
+    grep -Fxq '"winhttp"="native,builtin"' "$bs_dir/../../compatdata/620980/pfx/user.reg" || (
+      echo '[Software\\Wine\\DllOverrides]
+"winhttp"="native,builtin"' >> "$bs_dir/../../compatdata/620980/pfx/user.reg" ) || log_error "Failed to add DllOverrides to user.reg"
+    )
+
+  log_info "Beat Saber has been successfully patched with native BSIPA."
+}
+
 args_parse() {
   OPT_HELP=0
   OPT_VERSION=0
@@ -979,6 +1000,8 @@ parse_helper_ipa() {
   opt=$1; shift
   case $opt in
     patch) parse_helper_ipa_patch "$@";;
+    nativepatch) parse_helper_ipa_nativepatch "$@";;
+    nativedownload) parse_helper_ipa_nativedownload "$@";;
     *) log_error "Invalid action '$opt'"
   esac
 }
@@ -988,6 +1011,20 @@ parse_helper_ipa_patch() {
   config_get
   self_check_dependencies
   ipa_patch
+}
+
+parse_helper_ipa_nativepatch() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  ipa_native_patch
+}
+
+parse_helper_ipa_nativedownload() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  ipa_native_download_latest
 }
 
 args_parse "$@"
