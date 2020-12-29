@@ -729,11 +729,14 @@ remove      | Deletes (a) mod(s) (enabled or disabled) entirely.
 list        | Accepts one of 4 arguments: api, all, enabled, disabled, orphaned.
             | With api, all mods on beatmods.com will be listed. The other 3 are
             | self-explanatory.
-settype     | Accepts one of two arguments: dependency, explicit. This allows mods
-            | to be set as explicitly installed, or as a dependency. Dependencies
-            | will automatically be removed if no mods depend on them. After this
-            | first argument, any number of mods can be set as arguments to perform
-            | the action on."
+settype     | Accepts one of two arguments: dependency, explicit. This allows
+            | mods to be set as explicitly installed, or as a dependency.
+            | Dependencies will automatically be removed if no mods depend on
+            | them. After this first argument, any number of mods can be set as
+            | arguments to perform the action on.
+
+Note: The actions update, checkupdate, enable, disable, and remove may be run
+      with the argument 'all' to run the action on all applicable mods."
     ;;
     orphans)
     usage_message="$0 [options] $1 <action> [arguments...]
@@ -757,7 +760,8 @@ setexplicit | Sets all orphaned dependencies as explicitly installed."
 
 These are all available actions:
 
-patch | Patches Beat Saber with IPA.exe, using the wine prefix."
+download | Downloads the BSIPA mod, and the native IPA port by geefr.
+patch    | Patches Beat Saber with BSIPA, using the native Linux port by geefr."
     ;;
     *)
     usage_message="$0 [options] <mode> <action> [arguments...]
@@ -768,8 +772,9 @@ patch | Patches Beat Saber with IPA.exe, using the wine prefix."
 
 These are all available modes:
 
-mod  | Manage mods, including downloading, enabling, and disabling.
-ipa  | Only one action -- patch. Patches Beat Saber with IPA.exe"
+mod     | Manage mods, including downloading, enabling, and disabling.
+orphans | Manage orphaned dependencies, includng removing and disabling.
+ipa     | Only one action -- patch. Patches Beat Saber with IPA.exe"
     ;;
   esac
   log "Usage" "$usage_message"
