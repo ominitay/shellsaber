@@ -604,46 +604,20 @@ $(tool_mod_list_all)
 EOF
 }
 
-wine_setup() {
-  log_info "Setting up wine prefix at $wine_prefix. This will take a while."
-  WINEPREFIX="$wine_prefix" winetricks -f -q dotnet461 || log_error "Failed to install DotNet 4.6.1"
-  log_info "Wine prefix at $wine_prefix has been set up."
-}
-
-wine_check() {
-  log_info "Checking validity of wine prefix at $wine_prefix."
-
-  [ -d "$wine_prefix" ] || log_error "Wine prefix at $wine_prefix does not exist."
-
-  [ -f "$wine_prefix/drive_c/windows/Microsoft.NET/Framework/v4.0.30319/Microsoft.CSharp.dll" ] || log_error "Wine prefix at $wine_prefix lacks the expected dotnet installation."
-
-  log_info "Wine prefix at $wine_prefix is valid."
-
-  return 0
-}
-
-ipa_patch() {
-  tool_mod_check_local "BSIPA"    || log_error "BSIPA is not downloaded or enabled."
-  tool_mod_check_enabled "BSIPA"  || log_error "BSIPA is not enabled."
-  log_info "BSIPA is enabled."
-
-  wine_check
-
-  log_info "All checks passed, continuing to patch..."
-
-  (
-    cd "$bs_dir"
-    WINEPREFIX="$wine_prefix" wine ./IPA.exe "Beat Saber.exe" -n
-
-    grep -Fxq '"winhttp"="native,builtin"' "$bs_dir/../../compatdata/620980/pfx/user.reg" || (
-      echo '[Software\\Wine\\DllOverrides]
-"winhttp"="native,builtin"' >> "$bs_dir/../../compatdata/620980/pfx/user.reg" ) || log_error "Failed to add DllOverrides to user.reg"
-    )
-
-  log_info "Beat Saber has been successfully patched with BSIPA."
-}
-
 ipa_native_download_latest() {
+  if ! tool_mod_check_local "BSIPA"
+  then
+    mod_download_tree "BSIPA"
+  else
+    mod_update "BSIPA"
+  fi
+  if ! tool_mod_check_enabled "BSIPA"
+  then
+    mod_enable "BSIPA"
+  else
+    log_info "BSIPA is already enabled"
+  fi
+
   ipa_latest_version="$(curl -fsL -H 'Accept: application/json' "https://github.com/geefr/BSIPA-Linux/releases/latest" | jq -r ".tag_name")"
 
   if [ -d "$ipa_native_dir" ]
@@ -663,10 +637,11 @@ ipa_native_download_latest() {
 
   log_info "Downloading native Linux IPA"
   tool_download "https://github.com/geefr/BSIPA-Linux/releases/download/$ipa_latest_version/IPA-Minimal" > "$self_dir_tmp/IPA-Minimal"
+  log_info "Native Linux IPA successfully downloaded"
   mv "$self_dir_tmp/IPA-Minimal" "$ipa_native_dir/IPA-Minimal"
   chmod +x "$ipa_native_dir/IPA-Minimal"
-  log_info "Native Linux IPA successfully downloaded"
   printf "%s\n" "$ipa_latest_version" > "$ipa_native_dir/version"
+  log_info "Native Linux IPA successfully enabled"
 }
 
 ipa_native_patch() {
@@ -725,7 +700,6 @@ args_parse() {
   case $opt in
     mod) parse_helper_mod "$@";;
     orphans) parse_helper_orphans "$@";;
-    wine) parse_helper_wine "$@";;
     ipa) parse_helper_ipa "$@";;
     *) log_error "Mode '$opt' not recognised.";;
   esac
@@ -774,18 +748,6 @@ disable     | Disables all orphaned dependencies.
 remove      | Deletes all orphaned dependencies.
 setexplicit | Sets all orphaned dependencies as explicitly installed."
     ;;
-    wine)
-    usage_message="$0 [options] $1 <action> [arguments...]
-
--h, --help    | Output this help page. Specific pages exist for each mode.
--v, --version | Output the version of this script.
--V, --verbose | Output a more detailed log for debugging.
-
-These are all available actions:
-
-validate | Checks that the wine prefix used for patching Beat Saber is valid.
-setup    | Sets up the wine prefix used for patching Beat Saber."
-    ;;
     ipa)
     usage_message="$0 [options] $1 <action> [arguments...]
 
@@ -807,7 +769,6 @@ patch | Patches Beat Saber with IPA.exe, using the wine prefix."
 These are all available modes:
 
 mod  | Manage mods, including downloading, enabling, and disabling.
-wine | Manage the wine prefix used for BSIPA.
 ipa  | Only one action -- patch. Patches Beat Saber with IPA.exe"
     ;;
   esac
@@ -835,7 +796,12 @@ parse_helper_mod_download() {
   self_check_dependencies
   for arg
   do
-    mod_download_tree "$arg"
+    if [ "$arg" = "BSIPA" ]
+    then
+      log_warn "Please download '$arg' with '$0 ipa download'"
+    else
+      mod_download_tree "$arg"
+    fi
   done
 }
 
@@ -974,35 +940,11 @@ parse_helper_orphans_remove() {
   orphans_remove
 }
 
-parse_helper_wine() {
-  opt=$1; shift
-  case $opt in
-    validate) parse_helper_wine_validate "$@";;
-    setup) parse_helper_wine_setup "$@";;
-    *) log_error "Invalid action '$opt'"
-  esac
-}
-
-parse_helper_wine_validate() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
-  config_get
-  self_check_dependencies
-  wine_check
-}
-
-parse_helper_wine_setup() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
-  config_get
-  self_check_dependencies
-  wine_setup
-}
-
 parse_helper_ipa() {
   opt=$1; shift
   case $opt in
     patch) parse_helper_ipa_patch "$@";;
-    nativepatch) parse_helper_ipa_nativepatch "$@";;
-    nativedownload) parse_helper_ipa_nativedownload "$@";;
+    download) parse_helper_ipa_download "$@";;
     *) log_error "Invalid action '$opt'"
   esac
 }
@@ -1011,17 +953,10 @@ parse_helper_ipa_patch() {
   [ $# -gt 0 ] && log_error "No arguments expected."
   config_get
   self_check_dependencies
-  ipa_patch
-}
-
-parse_helper_ipa_nativepatch() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
-  config_get
-  self_check_dependencies
   ipa_native_patch
 }
 
-parse_helper_ipa_nativedownload() {
+parse_helper_ipa_download() {
   [ $# -gt 0 ] && log_error "No arguments expected."
   config_get
   self_check_dependencies

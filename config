@@ -1,6 +1,5 @@
 bs_dir="$HOME/.steam/steam/steamapps/common/Beat Saber"
 bs_version="1.12.2"
-wine_prefix="$self_dir_root/.wine"
 
 api_url_root="https://beatmods.com"
 api_url="$api_url_root/api/v1"
