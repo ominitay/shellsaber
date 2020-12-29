@@ -664,6 +664,7 @@ ipa_native_download_latest() {
   log_info "Downloading native Linux IPA"
   tool_download "https://github.com/geefr/BSIPA-Linux/releases/download/$ipa_latest_version/IPA-Minimal" > "$self_dir_tmp/IPA-Minimal"
   mv "$self_dir_tmp/IPA-Minimal" "$ipa_native_dir/IPA-Minimal"
+  chmod +x "$ipa_native_dir/IPA-Minimal"
   log_info "Native Linux IPA successfully downloaded"
   printf "%s\n" "$ipa_latest_version" > "$ipa_native_dir/version"
 }
