@@ -677,6 +677,8 @@ ipa_native_patch() {
 
   log_info "All checks passed, continuing to patch..."
 
+  ln -s "$self_dir_enabled/BSIPA/IPA" "$ipa_native_dir/IPA"
+
   (
     cd "$bs_dir"
     $ipa_native_dir/IPA-Minimal "Beat Saber.exe" -n -f
@@ -684,7 +686,9 @@ ipa_native_patch() {
     grep -Fxq '"winhttp"="native,builtin"' "$bs_dir/../../compatdata/620980/pfx/user.reg" || (
       echo '[Software\\Wine\\DllOverrides]
 "winhttp"="native,builtin"' >> "$bs_dir/../../compatdata/620980/pfx/user.reg" ) || log_error "Failed to add DllOverrides to user.reg"
-    )
+  )
+
+  rm "$ipa_native_dir/IPA"
 
   log_info "Beat Saber has been successfully patched with native BSIPA."
 }
