@@ -21,12 +21,50 @@ be moved, and all mod files stay in one place.
 
 ## Installation
 
-Don't use this yet (unless you want to test and/or contribute). I hope to
-have a prerelease which is usable by the year's end.
+Download `installshaber` from the latest release, run `chmod +x installshaber`,
+then execute it. Distro-specific packages are in the works, and contributions for
+such would be much appreciated!
+
+## Setup
+
+You will usually need to customise a config file for ShellSaber to work. To do
+this, you should copy the default config file (either
+`~/.local/share/shaber/default/config` or `/etc/shaber/config`) to
+`~/.config/shaber/config`. You can then change `bs_dir` to where your Beat Saber
+installation is, and `bs_version` to the latest version supported by the api
+([BeatMods](https://beatmods.com)). The `api_url` variables should be left as
+their default.
 
 ## Usage
 
-*TODO*
+###### Output help page
+
+`shaber -h` or `shaber -h [MODE]`
+
+###### Download mods
+
+`shaber mod download [MODS...]`
+
+###### Enable mods
+
+`shaber mod enable [MODS...]`
+
+###### Disable mods
+
+`shaber mod disable [MODS...]`
+
+###### Delete mods
+
+`shaber mod remove [MODS...]`
+
+###### Update mods
+
+`shaber mod update [MODS...]`
+
+###### Patch with BSIPA
+
+`shaber ipa download`\
+`shaber ipa patch`
 
 ## Credit
 
