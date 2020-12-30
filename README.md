@@ -3,10 +3,6 @@
 ShellSaber is a mod manager written in POSIX-compliant shell script to support
 Beat Saber modding on Linux.
 
-***WARNING: This script is very much a work-in-progress. Error-catching is very
-sparse, and bugs will be significant and common. Please use geefr's [QBeat or
-Beataroni](https://github.com/geefr/beatsaber-linux-goodies) in the meantime.***
-
 ## Why?
 
 Linux has no mod managers besides
