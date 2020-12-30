@@ -41,8 +41,8 @@ printf "\
   #        Installing files...       #
 "
 
-install -D -m 775 "/tmp/$repo-$latest_version/shaber" "$HOME/.local/bin"
-install -D -m 664 "/tmp/$repo-$latest_version/config" "$HOME/.local/share/shaber/default"
+install -D -m 775 "/tmp/$repo-$latest_version/shaber" "$HOME/.local/bin/shaber"
+install -D -m 664 "/tmp/$repo-$latest_version/config" "$HOME/.local/share/shaber/default/config"
 rm -rf "/tmp/$repo-$latest_version"
 
 printf "\
