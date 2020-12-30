@@ -1,0 +1,52 @@
+#!/bin/sh -e
+
+user="Ominitay"
+repo="ShellSaber"
+
+printf "\
+========================================
+  #    Welcome to the ShellSaber     #
+  #            installer!            #
+========================================
+  #   Getting ShellSaber version...  #
+"
+
+latest_version="$(curl -fsL -H 'Accept: application/vnd.github.v3+json' "https://api.github.com/repos/$user/$repo/releases" | jq -r ".[0] | .tag_name")"
+
+[ "$latest_version" = "" ] && {
+  printf "Error: There are no releases found.\n" > /dev/stderr
+  exit 1
+}
+
+printf "\
+  # Latest ShellSaber version: $latest_version #
+========================================
+  #     Downloading ShellSaber...    #
+"
+
+curl -fsL "https://github.com/$user/$repo/archive/$latest_version.tar.gz" > "/tmp/ShellSaber.tar.gz"
+
+printf "\
+  #      Downloaded ShellSaber.      #
+========================================
+  #       Extracting archive...      #
+"
+
+tar  -C "/tmp" -xzf "/tmp/ShellSaber.tar.gz"
+rm -f "/tmp/ShellSaber.tar.gz"
+
+printf "\
+  #        Extracted archive.        #
+========================================
+  #        Installing files...       #
+"
+
+install -D -m 775 "/tmp/$repo-$latest_version/shaber" "$HOME/.local/bin"
+install -D -m 664 "/tmp/$repo-$latest_version/config" "$HOME/.local/share/shaber/default"
+rm -rf "/tmp/$repo-$latest_version"
+
+printf "\
+  #        Installed archive.        #
+========================================
+  #      Installation complete!      #
+"
