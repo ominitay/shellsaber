@@ -690,10 +690,8 @@ args_parse() {
 
   # Parse arguments
 
-  [ $# -lt 2 ] && OPT_HELP=1
-
-  [ $OPT_HELP = 1 ]    && { parse_helper_help "$@"; exit; }
   [ $OPT_VERSION = 1 ] && { self_get_version; exit; }
+  [ $OPT_HELP = 1 ] || [ $# -lt 2 ] && { parse_helper_help "$@"; exit; }
 
   opt=$1; shift
 
