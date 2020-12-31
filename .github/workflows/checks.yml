@@ -31,5 +31,3 @@ jobs:
         uses: ludeeus/action-shellcheck@master
         env:
           SHELLCHECK_OPTS: "-x"
-        with:
-          additional_files: "shaber installshaber"
