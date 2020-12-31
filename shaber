@@ -655,7 +655,7 @@ ipa_native_patch() {
 
   (
     cd "$bs_dir"
-    $ipa_native_dir/IPA-Minimal "Beat Saber.exe" -n -f --relativeToPwd
+    "$ipa_native_dir/IPA-Minimal" "Beat Saber.exe" -n -f --relativeToPwd
 
     grep -Fxq '"winhttp"="native,builtin"' "$bs_dir/../../compatdata/620980/pfx/user.reg" || (
       echo '[Software\\Wine\\DllOverrides]

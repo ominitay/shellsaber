@@ -3,7 +3,7 @@
 user="Ominitay"
 repo="ShellSaber"
 
-printf "\
+printf "%s" "\
 ========================================
   #    Welcome to the ShellSaber     #
   #            installer!            #
@@ -14,11 +14,11 @@ printf "\
 latest_version="$(curl -fsL -H 'Accept: application/vnd.github.v3+json' "https://api.github.com/repos/$user/$repo/releases" | jq -r ".[0] | .tag_name")"
 
 [ "$latest_version" = "" ] && {
-  printf "Error: There are no releases found.\n" > /dev/stderr
+  printf "%s" "Error: There are no releases found.\n" > /dev/stderr
   exit 1
 }
 
-printf "\
+printf "%s" "\
   # Latest ShellSaber version: $latest_version #
 ========================================
   #     Downloading ShellSaber...    #
@@ -26,7 +26,7 @@ printf "\
 
 curl -fsL "https://github.com/$user/$repo/archive/$latest_version.tar.gz" > "/tmp/ShellSaber.tar.gz"
 
-printf "\
+printf "%s" "\
   #      Downloaded ShellSaber.      #
 ========================================
   #       Extracting archive...      #
@@ -35,7 +35,7 @@ printf "\
 tar  -C "/tmp" -xzf "/tmp/ShellSaber.tar.gz"
 rm -f "/tmp/ShellSaber.tar.gz"
 
-printf "\
+printf "%s" "\
   #        Extracted archive.        #
 ========================================
   #        Installing files...       #
@@ -45,7 +45,7 @@ install -D -m 775 "/tmp/$repo-$latest_version/shaber" "$HOME/.local/bin/shaber"
 install -D -m 664 "/tmp/$repo-$latest_version/config" "$HOME/.local/share/shaber/default/config"
 rm -rf "/tmp/$repo-$latest_version"
 
-printf "\
+printf "%s" "\
   #        Installed archive.        #
 ========================================
   #      Installation complete!      #
