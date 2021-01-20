@@ -25,7 +25,7 @@ ipa_native_dir="$self_dir_root/ipa"
 self_dir_config="$HOME/.config/shaber"
 self_dir_config_default="$self_dir_root/default"
 
-self_version=0.1.0
+self_version=0.1.6
 
 log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
 log_debug() { return 0; }
