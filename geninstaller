@@ -1,0 +1,34 @@
+#!/bin/sh -e
+
+version="$(./shaber -v)"
+# shellcheck disable=SC2016
+shaberlocation='$HOME/.local/bin/shaber'
+# shellcheck disable=SC2016
+configlocation='$HOME/.local/share/shaber/default/config'
+
+cat <<EOF > installshaber
+#!/bin/sh -e
+
+printf "Welcome to the ShellSaber installer!
+Version: $version
+Extracting archive...\\r"
+
+mkdir "/tmp/shellsaber"
+sed -e '1,/^exit\$/d' "\$0" | tar xz -C "/tmp/shellsaber"
+
+printf "Extracted archive.   
+Installing ShellSaber...\\r"
+
+install -D -m 775 "/tmp/shellsaber/shaber" "$shaberlocation"
+install -D -m 664 "/tmp/shellsaber/config" "$configlocation"
+rm -rf "/tmp/shellsaber"
+
+printf "Installed ShellSaber.   
+Installation complete!\\n"
+
+exit
+EOF
+
+tar cz shaber config >> installshaber
+
+chmod +x installshaber
