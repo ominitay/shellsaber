@@ -62,6 +62,13 @@ their default.
 `shaber ipa download`\
 `shaber ipa patch`
 
+## Uninstallation
+
+To uninstall ShellSaber, all mods need to be disabled or removed beforehand. To
+do this, run the command `shaber mod remove all`. Afterwards, run the command
+`shaber-uninstall` in your shell. Your custom config file will be left where you 
+made it.
+
 ## Credit
 
 **[geefr](https://github.com/geefr)** — I was inspired by his *QBeat* mod
