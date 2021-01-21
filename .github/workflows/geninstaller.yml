@@ -31,11 +31,11 @@ jobs:
       - name: Upload artefact
         uses: actions/upload-artifact@v2
         with:
-          path: installshaber
+          path: shaber-install
       
       # Uploads installer to release
       - name: Upload to release
         uses: AButler/upload-release-assets@v2.0
         with:
-          files: installshaber
+          files: shaber-install
           repo-token: ${{ secrets.GITHUB_TOKEN }}
