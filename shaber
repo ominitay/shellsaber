@@ -707,16 +707,16 @@ args_parse() {
   opt=$1; shift
 
   case $opt in
-    mod) parse_helper_mod "$@";;
-    orphans) parse_helper_orphans "$@";;
-    ipa) parse_helper_ipa "$@";;
+    m|mod) parse_helper_mod "$@";;
+    o|orphans) parse_helper_orphans "$@";;
+    i|ipa) parse_helper_ipa "$@";;
     *) log_error "Mode '$opt' not recognised.";;
   esac
 }
 
 parse_helper_help() {
   case "$1" in
-    mod)
+    m|mod)
     usage_message="shaber [options] $1 <action> [arguments...]
 
 -h, --help    | Output this help page. Specific pages exist for each mode.
@@ -747,7 +747,7 @@ settype     | Accepts one of two arguments: dependency, explicit. This allows
 Note: The actions update, checkupdate, enable, disable, and remove may be run
       with the argument 'all' to run the action on all applicable mods."
     ;;
-    orphans)
+    o|orphans)
     usage_message="shaber [options] $1 <action> [arguments...]
 
 -h, --help    | Output this help page. Specific pages exist for each mode.
@@ -760,7 +760,7 @@ disable     | Disables all orphaned dependencies.
 remove      | Deletes all orphaned dependencies.
 setexplicit | Sets all orphaned dependencies as explicitly installed."
     ;;
-    ipa)
+    i|ipa)
     usage_message="shaber [options] $1 <action> [arguments...]
 
 -h, --help    | Output this help page. Specific pages exist for each mode.
@@ -792,14 +792,14 @@ ipa     | Only one action -- patch. Patches Beat Saber with IPA.exe"
 parse_helper_mod() {
   opt=$1; shift
   case $opt in
-    download) parse_helper_mod_download "$@";;
-    update) parse_helper_mod_update "$@";;
-    checkupdate) parse_helper_mod_checkupdate "$@";;
-    enable) parse_helper_mod_enable "$@";;
-    disable) parse_helper_mod_disable "$@";;
-    remove) parse_helper_mod_remove "$@";;
-    list) parse_helper_mod_list "$@";;
-    settype) parse_helper_mod_settype "$@";;
+    dl|download) parse_helper_mod_download "$@";;
+    u |update) parse_helper_mod_update "$@";;
+    c |checkupdate) parse_helper_mod_checkupdate "$@";;
+    e |enable) parse_helper_mod_enable "$@";;
+    d |disable) parse_helper_mod_disable "$@";;
+    r |remove) parse_helper_mod_remove "$@";;
+    l |list) parse_helper_mod_list "$@";;
+    s |settype) parse_helper_mod_settype "$@";;
     *) log_error "Invalid action '$opt'"
   esac
 }
@@ -934,8 +934,9 @@ parse_helper_mod_settype() {
 parse_helper_orphans() {
   opt=$1; shift
   case $opt in
-    disable) parse_helper_orphans_disable "$@";;
-    remove) parse_helper_orphans_remove "$@";;
+    d|disable) parse_helper_orphans_disable "$@";;
+    r|remove) parse_helper_orphans_remove "$@";;
+    s|setexplicit) parse_helper_orphans_setexplicit "$@";;
     *) log_error "Invalid action '$opt'"
   esac
 }
@@ -964,8 +965,8 @@ parse_helper_orphans_setexplicit() {
 parse_helper_ipa() {
   opt=$1; shift
   case $opt in
-    patch) parse_helper_ipa_patch "$@";;
-    download) parse_helper_ipa_download "$@";;
+    p |patch) parse_helper_ipa_patch "$@";;
+    dl|download) parse_helper_ipa_download "$@";;
     *) log_error "Invalid action '$opt'"
   esac
 }
