@@ -725,24 +725,24 @@ parse_helper_help() {
 
 These are all available actions:
 
-download    | Download (a) mod(s) from beatmods.com. Accepts at least one
-            | argument. All dependencies will also be downloaded.
-update      | Checks the version(s) of (a) mod(s), and updates them if out of
-            | date.
-checkupdate | Checks the version(s) of (a) mod(s), and updates them if out of
-            | date.
-enable      | Enable (a) disabled mod(s). Accepts at least one argument.
-            | All dependencies will also be activated.
-disable     | Disables (an) enabled mod(s). Accepts at least one argument.
-remove      | Deletes (a) mod(s) (enabled or disabled) entirely.
-list        | Accepts one of 4 arguments: api, all, enabled, disabled, orphaned.
-            | With api, all mods on beatmods.com will be listed. The other 3 are
-            | self-explanatory.
-settype     | Accepts one of two arguments: dependency, explicit. This allows
-            | mods to be set as explicitly installed, or as a dependency.
-            | Dependencies will automatically be removed if no mods depend on
-            | them. After this first argument, any number of mods can be set as
-            | arguments to perform the action on.
+dl, download    | Download (a) mod(s) from beatmods.com. Accepts at least one
+                | argument. All dependencies will also be downloaded.
+u,  update      | Checks the version(s) of (a) mod(s), and updates them if out of
+                | date.
+c,  checkupdate | Checks the version(s) of (a) mod(s), and updates them if out of
+                | date.
+e,  enable      | Enable (a) disabled mod(s). Accepts at least one argument.
+                | All dependencies will also be activated.
+d,  disable     | Disables (an) enabled mod(s). Accepts at least one argument.
+r,  remove      | Deletes (a) mod(s) (enabled or disabled) entirely.
+l,  list        | Accepts one of 4 arguments: api, all, enabled, disabled, orphaned.
+                | With api, all mods on beatmods.com will be listed. The other 3 are
+                | self-explanatory.
+s,  settype     | Accepts one of two arguments: dependency, explicit. This allows
+                | mods to be set as explicitly installed, or as a dependency.
+                | Dependencies will automatically be removed if no mods depend on
+                | them. After this first argument, any number of mods can be set as
+                | arguments to perform the action on.
 
 Note: The actions update, checkupdate, enable, disable, and remove may be run
       with the argument 'all' to run the action on all applicable mods."
@@ -756,9 +756,9 @@ Note: The actions update, checkupdate, enable, disable, and remove may be run
 
 These are all available actions:
 
-disable     | Disables all orphaned dependencies.
-remove      | Deletes all orphaned dependencies.
-setexplicit | Sets all orphaned dependencies as explicitly installed."
+d, disable     | Disables all orphaned dependencies.
+r, remove      | Deletes all orphaned dependencies.
+s, setexplicit | Sets all orphaned dependencies as explicit."
     ;;
     i|ipa)
     usage_message="shaber [options] $1 <action> [arguments...]
@@ -769,8 +769,8 @@ setexplicit | Sets all orphaned dependencies as explicitly installed."
 
 These are all available actions:
 
-download | Downloads the BSIPA mod, and the native IPA port by geefr.
-patch    | Patches Beat Saber with BSIPA, using the native Linux port by geefr."
+dl, download | Downloads the BSIPA mod, and the native IPA port by geefr.
+p,  patch    | Patches Beat Saber with BSIPA, using the native Linux port by geefr."
     ;;
     *)
     usage_message="shaber [options] <mode> <action> [arguments...]
@@ -781,9 +781,9 @@ patch    | Patches Beat Saber with BSIPA, using the native Linux port by geefr."
 
 These are all available modes:
 
-mod     | Manage mods, including downloading, enabling, and disabling.
-orphans | Manage orphaned dependencies, includng removing and disabling.
-ipa     | Only one action -- patch. Patches Beat Saber with IPA.exe"
+m, mod     | Manage mods, including downloading, enabling, and disabling.
+o, orphans | Manage orphaned dependencies, includng removing and disabling.
+i, ipa     | Download BSIPA-Linux, and patch the game."
     ;;
   esac
   log "Usage" "$usage_message"
