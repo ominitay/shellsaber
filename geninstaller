@@ -1,12 +1,46 @@
 #!/bin/sh -e
 
+# Variables for creating installer and uninstaller
 version="$(./shaber -v)"
 # shellcheck disable=SC2016
-shaberlocation='$HOME/.local/bin/shaber'
+binlocation='$HOME/.local/bin'
 # shellcheck disable=SC2016
-configlocation='$HOME/.local/share/shaber/default/config'
+fileslocation='$HOME/.local/share/shaber'
+# shellcheck disable=SC2016
+configlocation='$HOME/.local/share/shaber/default'
 
-cat <<EOF > installshaber
+# Create temporary directory and add files
+mkdir /tmp/shellsaber
+cp ./config /tmp/shellsaber
+cp ./shaber /tmp/shellsaber
+
+# Create uninstaller
+cat <<EOF > /tmp/shellsaber/shaber-uninstall
+#!/bin/sh -e
+
+printf "Uninstalling ShellSaber..\n"
+
+[ "\$(ls -A "$fileslocation/enabled")" ] && {
+  printf "Error: You still have mods enabled, please disable or remove them before uninstalling ShellSaber!\n"
+  exit 1
+}
+
+printf "Removing shaber..."
+rm -f "$binlocation/shaber"
+printf " Done.\n"
+
+printf "Removing mod files..."
+rm -rf "$fileslocation"
+printf " Done.\n"
+
+printf "ShellSaber has been uninstalled!"
+EOF
+
+# Make uninstaller executable
+chmod +x /tmp/shellsaber/shaber-uninstall
+
+# Create installer
+cat <<EOF > shaber-install
 #!/bin/sh -e
 
 printf "Welcome to the ShellSaber installer!
@@ -19,8 +53,9 @@ sed -e '1,/^exit\$/d' "\$0" | tar xz -C "/tmp/shellsaber"
 printf "Extracted archive.   
 Installing ShellSaber...\\r"
 
-install -D -m 775 "/tmp/shellsaber/shaber" "$shaberlocation"
-install -D -m 664 "/tmp/shellsaber/config" "$configlocation"
+install -D -m 775 "/tmp/shellsaber/shaber" "$binlocation/shaber"
+install -D -m 775 "/tmp/shellsaber/shaber-uninstall" "$binlocation/shaber-uninstall"
+install -D -m 664 "/tmp/shellsaber/config" "$configlocation/config"
 rm -rf "/tmp/shellsaber"
 
 printf "Installed ShellSaber.   
@@ -29,6 +64,11 @@ Installation complete!\\n"
 exit
 EOF
 
-tar cz shaber config >> installshaber
+# Create and add archive containing scripts
+tar cz -C "/tmp/shellsaber" shaber config shaber-uninstall >> shaber-install
 
-chmod +x installshaber
+# Remove temporary folder
+rm -r "/tmp/shellsaber"
+
+# Make installer executable
+chmod +x shaber-install
