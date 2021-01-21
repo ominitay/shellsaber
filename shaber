@@ -546,6 +546,18 @@ $(orphans_get)
 EOF
 }
 
+orphans_setexplicit() {
+  while IFS= read -r orphan
+  do
+    [ "$orphan" = "" ] || {
+      tool_mod_set_explicit "$orphan"
+    }
+  done << EOF
+$(orphans_get)
+
+EOF
+}
+
 mod_check_update() {
   if [ "$(tool_mod_get_location "$1")" = "none" ]
   then
@@ -940,6 +952,13 @@ parse_helper_orphans_remove() {
   config_get
   self_check_dependencies
   orphans_remove
+}
+
+parse_helper_orphans_setexplicit() {
+  [ $# -gt 0 ] && log_error "No arguments expected."
+  config_get
+  self_check_dependencies
+  orphans_setexplicit
 }
 
 parse_helper_ipa() {
