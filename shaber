@@ -25,6 +25,11 @@ ipa_native_dir="$self_dir_root/ipa"
 self_dir_config="$HOME/.config/shaber"
 self_dir_config_default="$self_dir_root/default"
 
+api_url_root="https://beatmods.com"
+api_url_mod="https://beatmods.com/api/v1/mod"
+api_url_version="https://versions.beatmods.com/versions.json"
+api_url="https://beatmods.com/api/v1"
+
 self_version=0.2.1
 
 log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
@@ -203,7 +208,7 @@ self_check_dependencies() {
 bs_check_version() ( api_get_version_list | jq --exit-status "index(\"$bs_version\")" > /dev/null; )
 
 api_get_mod_json() (
-  mod_json="$(tool_download "$api_url/mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || log_error "Couldn't get metadata for mod '$1'")"
+  mod_json="$(tool_download "$api_url_mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || log_error "Couldn't get metadata for mod '$1'")"
   if [ "$1" = "$(json_get_name "$mod_json")" ]
   then
     printf "%s\n" "$mod_json"
@@ -212,9 +217,9 @@ api_get_mod_json() (
   fi
 )
 
-api_get_version_list() ( tool_download "$api_url/version" || log_error "Couldn't get version list"; )
+api_get_version_list() ( tool_download "$api_url_version" || log_error "Couldn't get version list"; )
 
-api_get_mod_list() { tool_download "$api_url/mod?status=approved&gameVersion=$bs_version" | jq -r --exit-status '.[] | .name' || log_error "Couldn't get mod list from API."; }
+api_get_mod_list() { tool_download "$api_url_mod?status=approved&gameVersion=$bs_version" | jq -r --exit-status '.[] | .name' || log_error "Couldn't get mod list from API."; }
 
 json_get_download_url() ( printf "%s%s\n" "$api_url_root" "$(printf "%s" "$1" | jq -r --exit-status '.downloads | .[0] | .url')" )
 

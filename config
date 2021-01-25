@@ -1,5 +1,2 @@
 bs_dir="$HOME/.steam/steam/steamapps/common/Beat Saber"
 bs_version="1.12.2"
-
-api_url_root="https://beatmods.com"
-api_url="$api_url_root/api/v1"
