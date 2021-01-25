@@ -28,7 +28,6 @@ self_dir_config_default="$self_dir_root/default"
 api_url_root="https://beatmods.com"
 api_url_mod="https://beatmods.com/api/v1/mod"
 api_url_version="https://versions.beatmods.com/versions.json"
-api_url="https://beatmods.com/api/v1"
 
 self_version=0.2.1
 
