@@ -35,7 +35,7 @@ log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
 log_debug() { return 0; }
 log_info() { log "Info" "$1" "\033[0m"; }
 log_warn() { log "Warn" "$1" "\033[1;38;5;214m"; }
-log_error() { log "Error" "$1" "\033[1;38;5;196m"; exit 1; }
+log_error() { log "Error" "$1" "\033[1;38;5;196m"; }
 
 self_enable_debug() { log_debug() { log "Debug" "$1" "\033[1;38;5;27m" ;} }
 
@@ -46,13 +46,13 @@ config_get() {
     # shellcheck disable=SC1091
     # Get variables from file so that shellcheck knows assigned variables.
     # shellcheck source=.config/shaber/config
-    . "$self_dir_config/config" || log_error "Failed to source config file from '$self_dir_config/config'"
+    . "$self_dir_config/config" || { log_error "Failed to source config file from '$self_dir_config/config'"; exit 1; }
   else
-    [ -f "$self_dir_config_default/config" ] || log_error "Default config file at '$self_dir_config_default/config' does not exist."
+    [ -f "$self_dir_config_default/config" ] || { log_error "Default config file at '$self_dir_config_default/config' does not exist."; exit 1; }
     log_warn "Using default config file at '$self_dir_config_default/config'. It is recommended to copy this to '$self_dir_config/config' and modify it to your needs."
     # Get variables from file so that shellcheck knows assigned variables.
     # shellcheck source=config
-    . "$self_dir_config_default/config" || log_error "Failed to source config file from '$self_dir_config_default/config'"
+    . "$self_dir_config_default/config" || { log_error "Failed to source config file from '$self_dir_config_default/config'"; exit 1; }
   fi
 }
 
@@ -88,7 +88,7 @@ tool_mod_set_explicit () {
       log_info "Mod '$1' set as explicit."
     fi
   else
-    log_error "Mod '$1' is not enabled."
+    log_error "Mod '$1' is not enabled."; exit 1
   fi
 }
 
@@ -103,7 +103,7 @@ tool_mod_unset_explicit () {
       log_warn "Mod '$1' is not set as explicit."
     fi
   else
-    log_error "Mod '$1' is not enabled."
+    log_error "Mod '$1' is not enabled."; exit 1
   fi
 }
 
@@ -191,34 +191,34 @@ self_check_command() ( command -v "$1" > /dev/null; )
 
 self_check_dependencies() {
   log_debug "Checking dependencies"
-  self_check_command "jq"         || log_error "jq is not installed"
-  self_check_command "curl"       || log_error "curl is not installed"
-  self_check_command "unzip"      || log_error "unzip is not installed"
-  bs_check_version                || log_error "Beat Saber version is invalid"
-  [ -d "$bs_dir" ]                || log_error "Cannot find Beat Saber's directory"
-  [ -d "$self_dir_root" ]         || mkdir "$self_dir_root"         || log_error "Couldn't create root directory '$self_dir_root'"
-  [ -d "$self_dir_disabled" ]     || mkdir "$self_dir_disabled"     || log_error "Couldn't create disabled directory '$self_dir_disabled'"
-  [ -d "$self_dir_tmp" ] || mkdir "$self_dir_tmp" || log_error "Couldn't create downloads directory '$self_dir_tmp'"
-  [ -d "$self_dir_enabled" ]      || mkdir "$self_dir_enabled"      || log_error "Couldn't create enabled directory '$self_dir_enabled'"
-  [ -n "$(ls -A "$self_dir_tmp")" ] && { rm -rf "${self_dir_tmp:?}/"* || log_error "Failed to empty $self_dir_tmp"; }
+  self_check_command "jq"           || { log_error "jq is not installed"; exit 1; }
+  self_check_command "curl"         || { log_error "curl is not installed"; exit 1; }
+  self_check_command "unzip"        || { log_error "unzip is not installed"; exit 1; }
+  bs_check_version                  || { log_error "Beat Saber version is invalid"; exit 1; }
+  [ -d "$bs_dir" ]                  || { log_error "Cannot find Beat Saber's directory"; exit 1; }
+  [ -d "$self_dir_root" ]           || mkdir "$self_dir_root"         || { log_error "Couldn't create root directory '$self_dir_root'"; exit 1; }
+  [ -d "$self_dir_disabled" ]       || mkdir "$self_dir_disabled"     || { log_error "Couldn't create disabled directory '$self_dir_disabled'"; exit 1; }
+  [ -d "$self_dir_tmp" ]            || mkdir "$self_dir_tmp"          || { log_error "Couldn't create downloads directory '$self_dir_tmp'"; exit 1; }
+  [ -d "$self_dir_enabled" ]        || mkdir "$self_dir_enabled"      || { log_error "Couldn't create enabled directory '$self_dir_enabled'"; exit 1; }
+  [ -n "$(ls -A "$self_dir_tmp")" ] && { rm -rf "${self_dir_tmp:?}/"* || { log_error "Failed to empty $self_dir_tmp"; exit 1; } }
   log_debug "All dependencies seem okay"
 }
 
 bs_check_version() ( api_get_version_list | jq --exit-status "index(\"$bs_version\")" > /dev/null; )
 
 api_get_mod_json() (
-  mod_json="$(tool_download "$api_url_mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || log_error "Couldn't get metadata for mod '$1'")"
+  mod_json="$(tool_download "$api_url_mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || { log_error "Couldn't get metadata for mod '$1'"; exit 1; } )"
   if [ "$1" = "$(json_get_name "$mod_json")" ]
   then
     printf "%s\n" "$mod_json"
   else
-    log_error "Couldn't find mod '$1'"
+    log_error "Couldn't find mod '$1'"; exit 1
   fi
 )
 
-api_get_version_list() ( tool_download "$api_url_version" || log_error "Couldn't get version list"; )
+api_get_version_list() ( tool_download "$api_url_version" || { log_error "Couldn't get version list"; exit 1; }; )
 
-api_get_mod_list() { tool_download "$api_url_mod?status=approved&gameVersion=$bs_version" | jq -r --exit-status '.[] | .name' || log_error "Couldn't get mod list from API."; }
+api_get_mod_list() { tool_download "$api_url_mod?status=approved&gameVersion=$bs_version" | jq -r --exit-status '.[] | .name' || { log_error "Couldn't get mod list from API."; exit 1; } }
 
 json_get_download_url() ( printf "%s%s\n" "$api_url_root" "$(printf "%s" "$1" | jq -r --exit-status '.downloads | .[0] | .url')" )
 
@@ -227,7 +227,7 @@ json_get_hashlist() {
   mod_location="$(tool_mod_get_location "$mod_name")"
   if [ "$mod_location" = "none" ]
   then
-    log_error "Mod '$mod_name' is not downloaded."
+    log_error "Mod '$mod_name' is not downloaded."; exit 1
   else
     printf "%s\n" "$1" | jq -r --exit-status ".downloads | .[0] | .hashMd5 | .[] | [.hash,.file] | join(\"  $mod_location/\")"
   fi
@@ -238,7 +238,7 @@ json_check_integrity() {
   then
     log_info "Mod '$(json_get_name "$1")' passed integrity check."
   else
-    log_error "Mod '$(json_get_name "$1")' did not pass integrity check."
+    log_error "Mod '$(json_get_name "$1")' did not pass integrity check."; exit 1
   fi
   log_debug "md5sum output:
 $md5sum_output"
@@ -320,7 +320,7 @@ mod_link() (
     [ "$item" = "" ] || {
       log_debug "$moddir/$item"
       [ -f "$1/$item" ] && {
-        [ -f "$bs_dir/$moddir/$item" ] && log_error "File conflict: $1/$item"
+        [ -f "$bs_dir/$moddir/$item" ] && { log_error "File conflict: $1/$item"; exit 1; }
         ln -s "$1/$item" "$bs_dir/$moddir/$item"
       }
       [ -d "$1/$item" ] && {
@@ -368,7 +368,7 @@ mod_get_dependency_tree() (
   [ "$recursed" = "" ] && recursed=0
   if [ "$mod_location" = "none" ]
   then
-    log_error "Couldn't find mod '$1'"
+    log_error "Couldn't find mod '$1'"; exit 1
   else
     while IFS= read -r dependency
     do
@@ -376,7 +376,7 @@ mod_get_dependency_tree() (
         tool_find_in_array "$dependency" "$dependencytree" || {
           if [ "$(tool_mod_get_location "$dependency")" = "none" ]
           then
-            log_error "Dependency '$dependency' not downloaded"
+            log_error "Dependency '$dependency' not downloaded"; exit 1
           else
             dependencytree="$(mod_get_dependency_tree "$dependency" "$dependencytree" "1")"
           fi
@@ -565,7 +565,7 @@ EOF
 mod_check_update() {
   if [ "$(tool_mod_get_location "$1")" = "none" ]
   then
-    log_error "Mod '$1' not downloaded or installed."
+    log_error "Mod '$1' not downloaded or installed."; exit 1
   else
     if tool_version_compare "$(json_get_version "$(api_get_mod_json "$1")")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
 " "1")"
@@ -589,7 +589,7 @@ EOF
 mod_update() {
   if [ "$(tool_mod_get_location "$1")" = "none" ]
   then
-    log_error "Mod '$1' not downloaded or installed."
+    log_error "Mod '$1' not downloaded or installed."; exit 1
   else
     mod_json="$(api_get_mod_json "$1")"
     if tool_version_compare "$(json_get_version "$mod_json")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
@@ -660,11 +660,11 @@ ipa_native_download_latest() {
 }
 
 ipa_native_patch() {
-  tool_mod_check_local "BSIPA"    || log_error "BSIPA is not downloaded or enabled."
-  tool_mod_check_enabled "BSIPA"  || log_error "BSIPA is not enabled."
+  tool_mod_check_local "BSIPA"    || { log_error "BSIPA is not downloaded or enabled."; exit 1; }
+  tool_mod_check_enabled "BSIPA"  || { log_error "BSIPA is not enabled."; exit 1; }
   log_info "BSIPA is enabled."
 
-  [ -d "$ipa_native_dir" ] || log_error "Native Linux IPA is not downloaded."
+  [ -d "$ipa_native_dir" ] || { log_error "Native Linux IPA is not downloaded."; exit 1 }
 
   log_info "All checks passed, continuing to patch..."
 
@@ -674,7 +674,7 @@ ipa_native_patch() {
 
     grep -Fxq '"winhttp"="native,builtin"' "$bs_dir/../../compatdata/620980/pfx/user.reg" || (
       echo '[Software\\Wine\\DllOverrides]
-"winhttp"="native,builtin"' >> "$bs_dir/../../compatdata/620980/pfx/user.reg" ) || log_error "Failed to add DllOverrides to user.reg"
+"winhttp"="native,builtin"' >> "$bs_dir/../../compatdata/620980/pfx/user.reg" ) || { log_error "Failed to add DllOverrides to user.reg"; exit 1; }
   )
 
   log_info "Beat Saber has been successfully patched with native BSIPA."
@@ -697,7 +697,7 @@ args_parse() {
       --verbose|-V)
         self_enable_debug ;;
       --*|-*)
-        log_error "Invalid option '$arg'";;
+        log_error "Invalid option '$arg'"; exit 1;;
       *)
         set -- "$@" "$arg";;
     esac
@@ -714,7 +714,7 @@ args_parse() {
     m|mod) parse_helper_mod "$@";;
     o|orphans) parse_helper_orphans "$@";;
     i|ipa) parse_helper_ipa "$@";;
-    *) log_error "Mode '$opt' not recognised.";;
+    *) log_error "Mode '$opt' not recognised."; exit 1 ;;
   esac
 }
 
@@ -804,12 +804,12 @@ parse_helper_mod() {
     r |remove) parse_helper_mod_remove "$@";;
     l |list) parse_helper_mod_list "$@";;
     s |settype) parse_helper_mod_settype "$@";;
-    *) log_error "Invalid action '$opt'"
+    *) log_error "Invalid action '$opt'"; exit 1;;
   esac
 }
 
 parse_helper_mod_download() {
-  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  [ $# -eq 0 ] && { log_error "Argument(s) expected, but none given."; exit 1; }
   config_get
   self_check_dependencies
   for arg
@@ -824,7 +824,7 @@ parse_helper_mod_download() {
 }
 
 parse_helper_mod_update() {
-  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  [ $# -eq 0 ] && { log_error "Argument(s) expected, but none given."; exit 1; }
   config_get
   self_check_dependencies
   for arg
@@ -839,7 +839,7 @@ parse_helper_mod_update() {
 }
 
 parse_helper_mod_checkupdate() {
-  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  [ $# -eq 0 ] && { log_error "Argument(s) expected, but none given."; exit 1; }
   config_get
   self_check_dependencies
   for arg
@@ -854,7 +854,7 @@ parse_helper_mod_checkupdate() {
 }
 
 parse_helper_mod_enable() {
-  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  [ $# -eq 0 ] && { log_error "Argument(s) expected, but none given."; exit 1; }
   config_get
   self_check_dependencies
   for arg
@@ -869,7 +869,7 @@ parse_helper_mod_enable() {
 }
 
 parse_helper_mod_disable() {
-  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  [ $# -eq 0 ] && { log_error "Argument(s) expected, but none given."; exit 1; }
   config_get
   self_check_dependencies
   for arg
@@ -878,7 +878,7 @@ parse_helper_mod_disable() {
     then
       mod_disable_all
     else
-      tool_mod_check_dependency "$arg" && log_error "Mod '$arg' is depended upon, and cannot be disabled."
+      tool_mod_check_dependency "$arg" && { log_error "Mod '$arg' is depended upon, and cannot be disabled."; exit 1; }
       mod_disable "$arg"
     fi
   done
@@ -886,7 +886,7 @@ parse_helper_mod_disable() {
 }
 
 parse_helper_mod_remove() {
-  [ $# -eq 0 ] && log_error "Argument(s) expected, but none given."
+  [ $# -eq 0 ] && { log_error "Argument(s) expected, but none given."; exit 1; }
   config_get
   self_check_dependencies
   for arg
@@ -895,7 +895,7 @@ parse_helper_mod_remove() {
     then
       mod_remove_all
     else
-      tool_mod_check_dependency "$arg" && log_error "Mod '$arg' is depended upon, and cannot be removed."
+      tool_mod_check_dependency "$arg" && { log_error "Mod '$arg' is depended upon, and cannot be removed."; exit 1 }
       mod_remove "$arg"
     fi
   done
@@ -903,8 +903,8 @@ parse_helper_mod_remove() {
 }
 
 parse_helper_mod_list() {
-  [ $# -eq 0 ] && log_error "Argument expected, but not given."
-  [ $# -gt 1 ] && log_error "Multiple arguments given, only one expected."
+  [ $# -eq 0 ] && { log_error "Argument expected, but none given."; exit 1; }
+  [ $# -gt 1 ] && { log_error "Multiple arguments given, only one expected."; exit 1; }
   config_get
   self_check_dependencies
   case "$1" in
@@ -917,9 +917,9 @@ parse_helper_mod_list() {
 }
 
 parse_helper_mod_settype() {
-  [ $# -lt 2 ] && log_error "Two or more arguments expected, but $# given."
+  [ $# -lt 2 ] && { log_error "Two or more arguments expected, but $# given."; exit 1; }
   mod_type="$1"; shift
-  [ "$mod_type" = "explicit" ] || [ "$mod_type" = "dependency" ] || log_error "First argument must be either 'explicit' or 'dependency'."
+  [ "$mod_type" = "explicit" ] || [ "$mod_type" = "dependency" ] || { log_error "First argument must be either 'explicit' or 'dependency'."; exit 1 }
   config_get
   self_check_dependencies
   for arg
@@ -941,26 +941,26 @@ parse_helper_orphans() {
     d|disable) parse_helper_orphans_disable "$@";;
     r|remove) parse_helper_orphans_remove "$@";;
     s|setexplicit) parse_helper_orphans_setexplicit "$@";;
-    *) log_error "Invalid action '$opt'"
+    *) log_error "Invalid action '$opt'"; exit 1;;
   esac
 }
 
 parse_helper_orphans_disable() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
+  [ $# -gt 0 ] && { log_error "No arguments expected."; exit 1; }
   config_get
   self_check_dependencies
   orphans_disable
 }
 
 parse_helper_orphans_remove() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
+  [ $# -gt 0 ] && { log_error "No arguments expected."; exit 1; }
   config_get
   self_check_dependencies
   orphans_remove
 }
 
 parse_helper_orphans_setexplicit() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
+  [ $# -gt 0 ] && { log_error "No arguments expected."; exit 1; }
   config_get
   self_check_dependencies
   orphans_setexplicit
@@ -971,19 +971,19 @@ parse_helper_ipa() {
   case $opt in
     p |patch) parse_helper_ipa_patch "$@";;
     dl|download) parse_helper_ipa_download "$@";;
-    *) log_error "Invalid action '$opt'"
+    *) log_error "Invalid action '$opt'"; exit 1;;
   esac
 }
 
 parse_helper_ipa_patch() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
+  [ $# -gt 0 ] && { log_error "No arguments expected."; exit 1; }
   config_get
   self_check_dependencies
   ipa_native_patch
 }
 
 parse_helper_ipa_download() {
-  [ $# -gt 0 ] && log_error "No arguments expected."
+  [ $# -gt 0 ] && { log_error "No arguments expected."; exit 1; }
   config_get
   self_check_dependencies
   ipa_native_download_latest
