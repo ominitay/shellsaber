@@ -662,10 +662,12 @@ ipa_native_download_latest() {
 ipa_native_patch() {
   tool_mod_check_local "BSIPA"    || { log_error "BSIPA is not downloaded or enabled."; exit 1; }
   tool_mod_check_enabled "BSIPA"  || { log_error "BSIPA is not enabled."; exit 1; }
-  log_info "BSIPA is enabled."
-
-  [ -d "$ipa_native_dir" ] || { log_error "Native Linux IPA is not downloaded."; exit 1 }
-
+  [ -d "$ipa_native_dir" ]        || { log_error "Native Linux IPA is not downloaded."; exit 1 }
+  [ -f "$bs_dir/../../compatdata/620980/pfx/user.reg" ] || { 
+    log_error "Beat Saber Proton prefix not detected: please run the game once, and check that
+you have set the game's directory correctly."; exit 1
+  }
+  
   log_info "All checks passed, continuing to patch..."
 
   (
