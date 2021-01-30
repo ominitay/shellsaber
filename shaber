@@ -340,7 +340,6 @@ mod_unlink() (
   log_debug "$1"
   moddir="$(printf "%s" "$1" | sed -e "s|$rootdir||g")"
 
-  [ -d "$bs_dir/$moddir" ] || mkdir "$bs_dir/$moddir"
   while IFS= read -r item
   do
     [ "$item" = "" ] || {
