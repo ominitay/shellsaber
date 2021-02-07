@@ -274,20 +274,15 @@ $dependencytree"
 
 mod_download() (
   log_debug "Mod '$1' location: $(tool_mod_get_location "$1")"
-  if [ "$(tool_mod_get_location "$(json_get_name "$1")")" = "none" ]
-  then
-    ( cd "$self_dir_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
-    unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
-    rm -f "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
-    mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
-    printf "%s\n%s\n" "$(json_get_version "$1")" "$bs_version" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/version"
-    printf "%s\n" "$(json_get_dependencies "$1")" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/depends"
+  ( cd "$self_dir_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
+  unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
+  rm -f "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
+  mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
+  printf "%s\n%s\n" "$(json_get_version "$1")" "$bs_version" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/version"
+  printf "%s\n" "$(json_get_dependencies "$1")" > "$self_dir_disabled/$(json_get_name "$1")/.shaber/depends"
 
-    log_info "Checking integrity of mod '$(json_get_name "$1")'."
-    json_check_integrity "$1"
-  else
-    log_warn "Mod '$(json_get_name "$1")' is already downloaded. Run 'shaber mod update $(json_get_name "$1")' to update it."
-  fi
+  log_info "Checking integrity of mod '$(json_get_name "$1")'."
+  json_check_integrity "$1"
 )
 
 mod_download_tree() {
@@ -297,15 +292,22 @@ mod_download_tree() {
   while IFS= read -r mod
   do
     [ "$mod" = "" ] || {
-      log_info "Downloading dependency '$(json_get_name "$mod")'"
-      mod_download "$mod"
+      [ "$(tool_mod_get_location "$(json_get_name "$mod")")" = "none" ] && {
+        log_info "Downloading dependency '$(json_get_name "$mod")'"
+        mod_download "$mod"
+      }
     }
   done << EOF
 $download_queue
 EOF
 
-  log_info "Downloading mod '$(json_get_name "$mod_json")'"
-  mod_download "$mod_json"
+  if [ "$(tool_mod_get_location "$(json_get_name "$mod_json")")" = "none" ] 
+  then
+    log_info "Downloading mod '$(json_get_name "$mod_json")'"
+    mod_download "$mod_json"
+  else
+    log_warn "Mod '$(json_get_name "$mod_json")' is already downloaded. Run 'shaber mod update $(json_get_name "$mod_json")' to update it."
+  fi
 }
 
 
