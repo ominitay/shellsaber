@@ -322,7 +322,7 @@ mod_link() (
     [ "$item" = "" ] || {
       log_debug "$moddir/$item"
       [ -f "$1/$item" ] && {
-        [ -f "$bs_dir/$moddir/$item" ] && { log_error "File conflict: $1/$item"; exit 1; }
+        [ -f "$bs_dir/$moddir/$item" ] && { log_error "File conflict: $bs_dir${moddir:+$moddir/}$item"; exit 1; }
         ln -s "$1/$item" "$bs_dir/$moddir/$item"
       }
       [ -d "$1/$item" ] && {
