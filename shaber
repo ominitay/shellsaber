@@ -193,6 +193,7 @@ self_check_dependencies() {
   log_debug "Checking dependencies"
   self_check_command "jq"           || { log_error "jq is not installed"; exit 1; }
   self_check_command "curl"         || { log_error "curl is not installed"; exit 1; }
+  self_check_command "wget"         || { log_error "wget is not installed"; exit 1; }
   self_check_command "unzip"        || { log_error "unzip is not installed"; exit 1; }
   bs_check_version                  || { log_error "Beat Saber version is invalid"; exit 1; }
   [ -d "$bs_dir" ]                  || { log_error "Cannot find Beat Saber's directory"; exit 1; }
@@ -274,7 +275,7 @@ $dependencytree"
 
 mod_download() (
   log_debug "Mod '$1' location: $(tool_mod_get_location "$1")"
-  ( cd "$self_dir_tmp"; curl -fsL "$(json_get_download_url "$1")" -O )
+  ( cd "$self_dir_tmp"; wget "$(json_get_download_url "$1")" )
   unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
   rm -f "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
   mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
