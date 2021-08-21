@@ -29,7 +29,7 @@ api_url_root="https://beatmods.com"
 api_url_mod="https://beatmods.com/api/v1/mod"
 api_url_version="https://versions.beatmods.com/versions.json"
 
-self_version=0.2.4
+self_version=0.2.5
 
 log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
 log_debug() { return 0; }
