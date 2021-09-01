@@ -5,21 +5,31 @@ Beat Saber modding on Linux.
 
 ## Why?
 
-Linux has no mod managers besides
+Linux has no other native mod managers besides
 [QBeat and Beataroni](https://github.com/geefr/beatsaber-linux-goodies)
 (written and maintained by [geefr](https://github.com/geefr)). While these are
 great tools in their own right, QBeat (which is now discontinued) cannot keep
-track of currently installed mods, and Beataroni is GUI-only (and, like this
-script, is in early stages of development). ShellSaber takes a different
-approach. By keeping track of dependencies, ShellSaber is able to remove
-orphaned dependencies quickly and easily. Symlinking means that no files have to
-be moved, and all mod files stay in one place.
+track of currently installed mods, and Beataroni is GUI-only and uses dotnet. 
+ShellSaber takes a different approach. By keeping track of dependencies, 
+ShellSaber is able to remove orphaned dependencies quickly and easily. The use
+of symlinks means that no files have to be moved, and that all mod files remain
+separate from the Beat Saber installation.
 
 ## Installation
 
+### Arch
+
+```sh
+git clone https://github.com/ominitay/shellsaber
+cd shellsaber
+makepkg -si # Generate and install the package
+```
+
+### Other Distros (local installation)
+
 Download `installshaber` from the latest release, run `chmod +x installshaber`,
-then execute it. Distro-specific packages are in the works, and contributions for
-such would be much appreciated!
+then execute it. Contributions for packages for unsupported distros would be much
+appreciated!
 
 ## Setup
 
