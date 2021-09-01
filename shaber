@@ -454,8 +454,10 @@ mod_remove() {
 mod_enable_all() {
   while IFS= read -r mod
   do
-    mod_enable "$mod"
-    tool_mod_set_explicit "$mod"
+    [ "$mod" = "" ] || {
+      mod_enable "$mod"
+      tool_mod_set_explicit "$mod"
+    }
   done <<EOF
 $(tool_mod_list_disabled)
 EOF
@@ -464,7 +466,7 @@ EOF
 mod_disable_all() {
   while IFS= read -r mod
   do
-    mod_disable "$mod"
+    [ "$mod" = "" ] || mod_disable "$mod"
   done <<EOF
 $(tool_mod_list_enabled)
 EOF
@@ -473,7 +475,7 @@ EOF
 mod_remove_all() {
   while IFS= read -r mod
   do
-    mod_remove "$mod"
+    [ "$mod" = "" ] || mod_remove "$mod"
   done <<EOF
 $(tool_mod_list_all)
 EOF
@@ -588,7 +590,7 @@ mod_check_update() {
 mod_check_update_all() {
   while IFS= read -r mod
   do
-    mod_check_update "$mod"
+    [ "$mod" = "" ] || mod_check_update "$mod"
   done <<EOF
 $(tool_mod_list_all)
 EOF
@@ -621,7 +623,7 @@ mod_update() {
 mod_update_all() {
   while IFS= read -r mod
   do
-    mod_update "$mod"
+    [ "$mod" = "" ] || mod_update "$mod"
   done <<EOF
 $(tool_mod_list_all)
 EOF
