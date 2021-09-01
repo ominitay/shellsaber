@@ -1,5 +1,5 @@
 pkgname=shellsaber
-pkgver=0.2.5
+pkgver=0.2.6
 pkgrel=1
 epoch=
 pkgdesc="A mod manager written in POSIX-compliant shell script to support Beat Saber modding on Linux."
