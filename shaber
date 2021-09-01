@@ -24,6 +24,7 @@ ipa_native_dir="$self_dir_root/ipa"
 
 self_dir_config="$HOME/.config/shaber"
 self_dir_config_default="$self_dir_root/default"
+self_dir_config_global="/etc/shaber"
 
 api_url_root="https://beatmods.com"
 api_url_mod="https://beatmods.com/api/v1/mod"
@@ -40,19 +41,24 @@ log_error() { log "Error" "$1" "\033[1;38;5;196m"; }
 self_enable_debug() { log_debug() { log "Debug" "$1" "\033[1;38;5;27m" ;} }
 
 config_get() {
+  # This file does not have to exist, so don't warn if it doesn't.
+  # shellcheck disable=SC1091
+  # Get variables from file so that shellcheck knows assigned variables.
+  # shellcheck source=config
   if [ -f "$self_dir_config/config" ]
   then
-    # This file does not have to exist, so don't warn if it doesn't.
-    # shellcheck disable=SC1091
-    # Get variables from file so that shellcheck knows assigned variables.
-    # shellcheck source=.config/shaber/config
     . "$self_dir_config/config" || { log_error "Failed to source config file from '$self_dir_config/config'"; exit 1; }
-  else
-    [ -f "$self_dir_config_default/config" ] || { log_error "Default config file at '$self_dir_config_default/config' does not exist."; exit 1; }
+  elif [ -f "$self_dir_config_default/config" ]
+  then
     log_warn "Using default config file at '$self_dir_config_default/config'. It is recommended to copy this to '$self_dir_config/config' and modify it to your needs."
-    # Get variables from file so that shellcheck knows assigned variables.
-    # shellcheck source=config
     . "$self_dir_config_default/config" || { log_error "Failed to source config file from '$self_dir_config_default/config'"; exit 1; }
+  elif [ -f "$self_dir_config_global/config" ]
+  then
+    log_warn "Using default config file at '$self_dir_config_global/config'. It is recommended to copy this to '$self_dir_config/config' and modify it to your needs."
+    . "$self_dir_config_global/config" || { log_error "Failed to source config file from '$self_dir_config_global/config'"; exit 1; }
+  else
+    log_error "Could not find a default config file at '$self_dir_config_default/config' or '$self_dir_config_global/config'"
+    exit 1
   fi
 }
 
