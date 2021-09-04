@@ -219,12 +219,14 @@ self_check_dependencies() {
 bs_check_version() ( api_get_version_list | jq --exit-status "index(\"$bs_version\")" > /dev/null; )
 
 api_get_mod_json() (
-  mod_json="$(tool_download "$api_url_mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || { log_error "Couldn't get metadata for mod '$1'"; exit 1; } )"
-  if [ "$1" = "$(json_get_name "$mod_json")" ]
+  mod_name=$1
+  mod_url="$api_url_mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$mod_name")"
+  mod_json="$(tool_download "$mod_url" | jq -c '.[0]')"
+  if [ "$mod_name" = "$(json_get_name "$mod_json")" ]
   then
     printf "%s\n" "$mod_json"
   else
-    log_error "Couldn't find mod '$1'"; exit 1
+    log_error "Couldn't find mod '$mod_name' for beat saber version $bs_version"
   fi
 )
 
@@ -271,7 +273,11 @@ json_get_dependency_tree() (
   do
     [ "$dependency" = "" ] || {
       tool_find_in_array_json_name "$dependency" "$dependencytree" || {
-        dependencytree="$(json_get_dependency_tree "$(api_get_mod_json "$dependency")" "1" "$dependencytree")"
+        mod_json="$(api_get_mod_json "$dependency")"
+        if [ -z "$mod_json" ]; then
+          log_error "Couldn't find dependency $dependency for $1"; exit 1
+        fi
+        dependencytree="$(json_get_dependency_tree "$mod_json" "1" "$dependencytree")"
       }
     }
   done <<EOF
@@ -298,8 +304,12 @@ mod_download() (
 )
 
 mod_download_tree() {
-  mod_json="$(api_get_mod_json "$1")"
-  log_info "Searching for dependencies"
+  mod_name=$1
+  mod_json="$(api_get_mod_json "$mod_name")"
+  if [ -z "$mod_json" ]; then
+    return
+  fi
+  log_info "Searching for dependencies for $mod_name"
   download_queue="$(json_get_dependency_tree "$mod_json")"
   while IFS= read -r mod
   do
@@ -582,7 +592,11 @@ mod_check_update() {
   then
     log_error "Mod '$1' not downloaded or installed."; exit 1
   else
-    if tool_version_compare "$(json_get_version "$(api_get_mod_json "$1")")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
+    mod_json="$(api_get_mod_json "$1")"
+    if [ -z "$mod_json" ]; then
+      return
+    fi
+    if tool_version_compare "$(json_get_version "$mod_json")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
 " "1")"
     then
       log_info "Mod '$1' is up-to-date"
@@ -607,6 +621,9 @@ mod_update() {
     log_error "Mod '$1' not downloaded or installed."; exit 1
   else
     mod_json="$(api_get_mod_json "$1")"
+    if [ -z "$mod_json" ]; then
+      return
+    fi
     if tool_version_compare "$(json_get_version "$mod_json")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
 " "1")"
     then
