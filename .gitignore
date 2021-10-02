@@ -2,6 +2,10 @@
 
 shaber-install
 
+# Ignore local config file
+
+config
+
 # Ignore files outputted by makepkg
 
 /src/

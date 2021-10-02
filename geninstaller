@@ -11,7 +11,7 @@ configlocation='$HOME/.local/share/shaber/default'
 
 # Create temporary directory and add files
 mkdir /tmp/shellsaber
-cp ./config /tmp/shellsaber
+cp ./config.default /tmp/shellsaber/config
 cp ./shaber /tmp/shellsaber
 
 # Create uninstaller

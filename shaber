@@ -22,6 +22,7 @@ self_dir_enabled="$self_dir_root/enabled"
 
 ipa_native_dir="$self_dir_root/ipa"
 
+self_dir_config_local="$(dirname "$0")"
 self_dir_config="$HOME/.config/shaber"
 self_dir_config_default="$self_dir_root/default"
 self_dir_config_global="/etc/shaber"
@@ -44,10 +45,14 @@ config_get() {
   # This file does not have to exist, so don't warn if it doesn't.
   # shellcheck disable=SC1091
   # Get variables from file so that shellcheck knows assigned variables.
-  # shellcheck source=config
+  # shellcheck source=config.default
   if [ -f "$self_dir_config/config" ]
   then
     . "$self_dir_config/config" || { log_error "Failed to source config file from '$self_dir_config/config'"; exit 1; }
+  elif [ -f "$self_dir_config_local/config" ]
+  then
+    log_info "Using local config file at '$self_dir_config_local/config'."
+    . "$self_dir_config_local/config" || { log_error "Failed to source config file from '$self_dir_config_local/config'"; exit 1; }
   elif [ -f "$self_dir_config_default/config" ]
   then
     log_warn "Using default config file at '$self_dir_config_default/config'. It is recommended to copy this to '$self_dir_config/config' and modify it to your needs."
