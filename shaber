@@ -293,7 +293,7 @@ $dependencytree"
 
 mod_download() (
   log_debug "Mod '$1' location: $(tool_mod_get_location "$1")"
-  ( cd "$self_dir_tmp"; wget "$(json_get_download_url "$1")" )
+  ( cd "$self_dir_tmp"; wget -q --show-progress --progress=bar:force "$(json_get_download_url "$1")" )
   unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
   rm -f "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
   mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
