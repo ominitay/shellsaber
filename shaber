@@ -22,6 +22,7 @@ self_dir_enabled="$self_dir_root/enabled"
 
 ipa_native_dir="$self_dir_root/ipa"
 
+self_dir_config_local="$(dirname "$0")"
 self_dir_config="$HOME/.config/shaber"
 self_dir_config_default="$self_dir_root/default"
 self_dir_config_global="/etc/shaber"
@@ -30,7 +31,7 @@ api_url_root="https://beatmods.com"
 api_url_mod="https://beatmods.com/api/v1/mod"
 api_url_version="https://versions.beatmods.com/versions.json"
 
-self_version=0.2.6
+self_version=0.3.0
 
 log() { printf "%b%s: %s%b" "$3" "$1" "$2" "\033[0m\n" > /dev/stderr; }
 log_debug() { return 0; }
@@ -44,10 +45,14 @@ config_get() {
   # This file does not have to exist, so don't warn if it doesn't.
   # shellcheck disable=SC1091
   # Get variables from file so that shellcheck knows assigned variables.
-  # shellcheck source=config
+  # shellcheck source=config.default
   if [ -f "$self_dir_config/config" ]
   then
     . "$self_dir_config/config" || { log_error "Failed to source config file from '$self_dir_config/config'"; exit 1; }
+  elif [ -f "$self_dir_config_local/config" ]
+  then
+    log_info "Using local config file at '$self_dir_config_local/config'."
+    . "$self_dir_config_local/config" || { log_error "Failed to source config file from '$self_dir_config_local/config'"; exit 1; }
   elif [ -f "$self_dir_config_default/config" ]
   then
     log_warn "Using default config file at '$self_dir_config_default/config'. It is recommended to copy this to '$self_dir_config/config' and modify it to your needs."
@@ -131,7 +136,7 @@ $(tool_mod_list_enabled)
 EOF
 }
 
-tool_urlencode() ( printf "%s" "$1" | jq -Rr '@uri'; )
+tool_urlencode() ( printf "%s" "$1" | jq -Rre '@uri'; )
 
 tool_split() ( printf "%s" "$1" | cut -d "$2" -f "$3"; )
 
@@ -211,23 +216,25 @@ self_check_dependencies() {
   log_debug "All dependencies seem okay"
 }
 
-bs_check_version() ( api_get_version_list | jq --exit-status "index(\"$bs_version\")" > /dev/null; )
+bs_check_version() ( api_get_version_list | jq -e "index(\"$bs_version\")" > /dev/null; )
 
 api_get_mod_json() (
-  mod_json="$(tool_download "$api_url_mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$1")" | jq -c --exit-status '.[0]' || { log_error "Couldn't get metadata for mod '$1'"; exit 1; } )"
-  if [ "$1" = "$(json_get_name "$mod_json")" ]
+  mod_name="$1"
+  mod_url="$api_url_mod?status=approved&gameVersion=$bs_version&name=$(tool_urlencode "$mod_name")"
+  mod_json="$(tool_download "$mod_url" | jq -c -e '.[0]')"
+  if [ "$mod_name" = "$(json_get_name "$mod_json")" ]
   then
     printf "%s\n" "$mod_json"
   else
-    log_error "Couldn't find mod '$1'"; exit 1
+    return 1
   fi
 )
 
 api_get_version_list() ( tool_download "$api_url_version" || { log_error "Couldn't get version list"; exit 1; }; )
 
-api_get_mod_list() { tool_download "$api_url_mod?status=approved&gameVersion=$bs_version" | jq -r --exit-status '.[] | .name' || { log_error "Couldn't get mod list from API."; exit 1; } }
+api_get_mod_list() { tool_download "$api_url_mod?status=approved&gameVersion=$bs_version" | jq -r -e '.[] | .name' || { log_error "Couldn't get mod list from API."; exit 1; } }
 
-json_get_download_url() ( printf "%s%s\n" "$api_url_root" "$(printf "%s" "$1" | jq -r --exit-status '.downloads | .[0] | .url')" )
+json_get_download_url() ( printf "%s%s\n" "$api_url_root" "$(printf "%s" "$1" | jq -r -e '.downloads | .[0] | .url')" )
 
 json_get_hashlist() {
   mod_name="$(json_get_name "$1")"
@@ -236,7 +243,7 @@ json_get_hashlist() {
   then
     log_error "Mod '$mod_name' is not downloaded."; exit 1
   else
-    printf "%s\n" "$1" | jq -r --exit-status ".downloads | .[0] | .hashMd5 | .[] | [.hash,.file] | join(\"  $mod_location/\")"
+    printf "%s\n" "$1" | jq -r -e ".downloads | .[0] | .hashMd5 | .[] | [.hash,.file] | join(\"  $mod_location/\")"
   fi
 }
 
@@ -251,22 +258,27 @@ json_check_integrity() {
 $md5sum_output"
 }
 
-json_get_dependencies() ( printf "%s" "$1" | jq -r --exit-status '.dependencies | .[] | .name' )
+json_get_dependencies() ( printf "%s" "$1" | jq -r -e '.dependencies | .[] | .name' )
 
-json_get_name() ( printf "%s" "$1" | jq -r --exit-status '.name' )
+json_get_name() ( printf "%s" "$1" | jq -r -e '.name' )
 
-json_get_version() ( printf "%s" "$1" | jq -r --exit-status '.version' )
+json_get_version() ( printf "%s" "$1" | jq -r -e '.version' )
 
 json_get_dependency_tree() (
+  mod_name="$(json_get_name "$1")"
   dependencytree="$3"
   recursed="$2"
   [ "$recursed" = "" ] && recursed="0"
-  log_debug "Getting data from API for '$(json_get_name "$1")'"
+  log_debug "Getting data from API for '$mod_name'"
   while IFS= read -r dependency
   do
     [ "$dependency" = "" ] || {
       tool_find_in_array_json_name "$dependency" "$dependencytree" || {
-        dependencytree="$(json_get_dependency_tree "$(api_get_mod_json "$dependency")" "1" "$dependencytree")"
+        mod_json="$(api_get_mod_json "$dependency")" || {
+          log_error "Couldn't get API data for mod '$dependency'"
+          return 1
+        }
+        dependencytree="$(json_get_dependency_tree "$mod_json" "1" "$dependencytree")"
       }
     }
   done <<EOF
@@ -281,7 +293,7 @@ $dependencytree"
 
 mod_download() (
   log_debug "Mod '$1' location: $(tool_mod_get_location "$1")"
-  ( cd "$self_dir_tmp"; wget "$(json_get_download_url "$1")" )
+  ( cd "$self_dir_tmp"; wget -q --show-progress --progress=bar:force "$(json_get_download_url "$1")" )
   unzip -q -d "$self_dir_disabled/$(json_get_name "$1")" "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
   rm -f "$self_dir_tmp/$(basename "$(json_get_download_url "$1")")"
   mkdir "$self_dir_disabled/$(json_get_name "$1")/.shaber"
@@ -293,27 +305,35 @@ mod_download() (
 )
 
 mod_download_tree() {
-  mod_json="$(api_get_mod_json "$1")"
-  log_info "Searching for dependencies"
-  download_queue="$(json_get_dependency_tree "$mod_json")"
-  while IFS= read -r mod
+  mod_name="$1"
+  mod_json="$(api_get_mod_json "$mod_name")" || {
+    log_error "Couldn't get API data for mod '$mod_name'"
+    return 1
+  }
+  log_info "Searching for dependencies for '$mod_name'"
+  download_queue="$(json_get_dependency_tree "$mod_json")" || {
+    log_error "Couldn't find dependencies for '$mod_name'"
+    return 1
+  }
+  while IFS= read -r dependency_json
   do
-    [ "$mod" = "" ] || {
-      [ "$(tool_mod_get_location "$(json_get_name "$mod")")" = "none" ] && {
-        log_info "Downloading dependency '$(json_get_name "$mod")'"
-        mod_download "$mod"
+    [ "$dependency_json" = "" ] || {
+      dependency_name="$(json_get_name "$dependency_json")"
+      [ "$(tool_mod_get_location "$dependency_name")" = "none" ] && {
+        log_info "Downloading dependency '$dependency_name'"
+        mod_download "$dependency_json"
       }
     }
   done << EOF
 $download_queue
 EOF
 
-  if [ "$(tool_mod_get_location "$(json_get_name "$mod_json")")" = "none" ] 
+  if [ "$(tool_mod_get_location "$mod_name")" = "none" ]
   then
-    log_info "Downloading mod '$(json_get_name "$mod_json")'"
+    log_info "Downloading mod '$mod_name'"
     mod_download "$mod_json"
   else
-    log_warn "Mod '$(json_get_name "$mod_json")' is already downloaded. Run 'shaber mod update $(json_get_name "$mod_json")' to update it."
+    log_warn "Mod '$mod_name' is already downloaded. Run 'shaber mod update $mod_name' to update it."
   fi
 }
 
@@ -376,7 +396,7 @@ mod_get_dependency_tree() (
   [ "$recursed" = "" ] && recursed=0
   if [ "$mod_location" = "none" ]
   then
-    log_error "Couldn't find mod '$1'"; exit 1
+    log_error "Couldn't find mod '$1'"; return 1
   else
     while IFS= read -r dependency
     do
@@ -384,7 +404,7 @@ mod_get_dependency_tree() (
         tool_find_in_array "$dependency" "$dependencytree" || {
           if [ "$(tool_mod_get_location "$dependency")" = "none" ]
           then
-            log_error "Dependency '$dependency' not downloaded"; exit 1
+            log_error "Dependency '$dependency' not downloaded"; return 1
           else
             dependencytree="$(mod_get_dependency_tree "$dependency" "$dependencytree" "1")"
           fi
@@ -402,83 +422,130 @@ $dependencytree"
 )
 
 mod_enable() (
-  mod_location="$(tool_mod_get_location "$1")"
-  if [ "$mod_location" = "$self_dir_enabled/$1" ]
+  mod_name="$1"
+  mod_location="$(tool_mod_get_location "$mod_name")"
+  [ "$mod_location" = "none" ] && {
+    log_error "Mod '$mod_name' is not installed"
+    return 1
+  }
+  if [ "$mod_location" = "$self_dir_enabled/$mod_name" ]
   then
-    log_info "'$1' already enabled"
+    log_info "Mod '$mod_name' is already enabled"
   else
-    mv "$(tool_mod_get_location "$1")" "$self_dir_enabled"
-    mod_link "$self_dir_enabled/$1"
-    log_info "Enabled '$1'"
+    mv "$mod_location" "$self_dir_enabled"
+    mod_link "$self_dir_enabled/$mod_name"
+    log_info "Enabled mod '$mod_name'"
   fi
 )
-
-mod_enable_tree() {
-  enable_queue="$(mod_get_dependency_tree "$1")"
-  log_debug "$enable_queue"
-  while IFS= read -r dependency
-  do
-    [ "$dependency" = "" ] || {
-      mod_enable "$dependency"
-    }
-  done << EOF
-$enable_queue
-EOF
-  mod_enable "$1"
-  tool_mod_set_explicit "$1"
-}
-
-mod_disable() (
-  if [ -d "$self_dir_enabled/$1" ]
-  then
-    mod_unlink "$self_dir_enabled/$1"
-    mv "$self_dir_enabled/$1" "$self_dir_disabled/$1"
-    [ -f "$self_dir_disabled/$1/.shaber/explicit" ] && rm -f "$self_dir_disabled/$1/.shaber/explicit"
-    log_info "Disabled '$1'"
-  else
-    log_info "'$1' not enabled"
-  fi
-)
-
-mod_remove() {
-  if tool_mod_check_local "$1"
-  then
-    tool_mod_check_enabled "$1" && mod_disable "$1"
-    rm -rf "${self_dir_disabled:?}/${1:?}"
-    log_info "Removed '$1'"
-  else
-    log_warn "Mod '$1' is not downloaded."
-  fi
-}
 
 mod_enable_all() {
+  enable_all_error=0
   while IFS= read -r mod
   do
     [ "$mod" = "" ] || {
-      mod_enable "$mod"
+      mod_enable "$mod" || {
+        log_error "Failed to enable mod '$mod'"
+        enable_all_error=1
+        continue
+      }
       tool_mod_set_explicit "$mod"
     }
   done <<EOF
 $(tool_mod_list_disabled)
 EOF
+  [ $enable_all_error -eq 0 ]
 }
 
+mod_enable_tree() {
+  mod_name="$1"
+  enable_queue="$(mod_get_dependency_tree "$mod_name")" || {
+    log_error "Failed to get dependency tree for mod '$mod_name'"
+    return 1
+  }
+  log_debug "$enable_queue"
+  while IFS= read -r dependency
+  do
+    [ "$dependency" = "" ] || {
+      mod_enable "$dependency" || {
+        log_error "Failed to enable mod '$dependency'"
+        return 1
+      }
+    }
+  done << EOF
+$enable_queue
+EOF
+  mod_enable "$mod_name" || {
+    return 1
+  }
+  tool_mod_set_explicit "$mod_name"
+}
+
+mod_disable() (
+  mod_name="$1"
+  mod_location="$(tool_mod_get_location "$mod_name")"
+  [ "$mod_location" = "none" ] && {
+    log_error "Mod '$mod_name' is not installed"
+    return 1
+  }
+  if [ "$mod_location" = "$self_dir_disabled/$mod_name" ]
+  then
+    log_info "Mod '$mod_name' is already disabled"
+  else
+    mod_unlink "$mod_location"
+    rm -f "$mod_location/.shaber/explicit"
+    mv "$mod_location" "$self_dir_disabled/$mod_name"
+    log_info "Disabled mod '$mod_name'"
+  fi
+)
+
 mod_disable_all() {
+  disable_all_error=0
   while IFS= read -r mod
   do
-    [ "$mod" = "" ] || mod_disable "$mod"
+    [ "$mod" = "" ] || {
+      mod_disable "$mod" || {
+        log_error "Failed to disable mod '$mod'"
+        disable_all_error=1
+      }
+    }
   done <<EOF
 $(tool_mod_list_enabled)
 EOF
+  [ $disable_all_error -eq 0 ]
+}
+
+mod_remove() {
+  mod_name="$1"
+  if tool_mod_check_local "$mod_name"
+  then
+    tool_mod_check_enabled "$mod_name" && {
+      mod_disable "$mod_name" || {
+        log_error "Failed to disable mod '$mod_name'"
+        return 1
+      }
+    }
+    rm -rf "${self_dir_disabled:?}/${mod_name:?}"
+    log_info "Removed mod '$mod_name'"
+  else
+    log_error "Mod '$mod_name' is not installed"
+    return 1
+  fi
 }
 
 mod_remove_all() {
+  remove_all_error=0
   while IFS= read -r mod
   do
-    [ "$mod" = "" ] || mod_remove "$mod"
+    [ "$mod" = "" ] || {
+        mod_remove "$mod" || {
+          log_error "Failed to remove mod '$mod'"
+          remove_all_error=1
+        }
+      }
   done <<EOF
 $(tool_mod_list_all)
 EOF
+  [ $remove_all_error -eq 0 ]
 }
 
 orphans_get() {
@@ -573,60 +640,85 @@ EOF
 }
 
 mod_check_update() {
-  if [ "$(tool_mod_get_location "$1")" = "none" ]
+  mod_name="$1"
+  if [ "$(tool_mod_get_location "$mod_name")" = "none" ]
   then
-    log_error "Mod '$1' not downloaded or installed."; exit 1
+    log_error "Mod '$mod_name' not downloaded or installed."
+    return 1
   else
-    if tool_version_compare "$(json_get_version "$(api_get_mod_json "$1")")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
+    mod_json="$(api_get_mod_json "$mod_name")" || {
+      log_error "Couldn't get API data for mod '$mod'"
+      return 1
+    }
+    if tool_version_compare "$(json_get_version "$mod_json")" "$(tool_split "$(cat "$(tool_mod_get_location "$mod_name")/.shaber/version")" "
 " "1")"
     then
-      log_info "Mod '$1' is up-to-date"
+      log_info "Mod '$mod_name' is up-to-date"
     else
-      log_info "Mod '$1' is out-of-date; update with the command 'shaber mod update $1'"
+      log_info "Mod '$mod_name' is out-of-date; update with the command 'shaber mod update $mod_name'"
     fi
   fi
 }
 
 mod_check_update_all() {
+  check_update_all_error=0
   while IFS= read -r mod
   do
-    [ "$mod" = "" ] || mod_check_update "$mod"
+    [ "$mod" = "" ] || {
+      mod_check_update "$mod" || {
+        log_error "Failed to check mod '$mod' for updates"
+        check_update_all_error=1
+      }
+    }
   done <<EOF
 $(tool_mod_list_all)
 EOF
+  [ $check_update_all_error -eq 0 ]
 }
 
 mod_update() {
-  if [ "$(tool_mod_get_location "$1")" = "none" ]
+  mod_name="$1"
+  if [ "$(tool_mod_get_location "$mod_name")" = "none" ]
   then
-    log_error "Mod '$1' not downloaded or installed."; exit 1
+    log_error "Mod '$mod_name' not downloaded or installed."
+    return 1
   else
-    mod_json="$(api_get_mod_json "$1")"
-    if tool_version_compare "$(json_get_version "$mod_json")" "$(tool_split "$(cat "$(tool_mod_get_location "$1")/.shaber/version")" "
+    mod_json="$(api_get_mod_json "$mod_name")" || {
+      log_error "Couldn't get API data for mod '$mod_name'"
+      return 1
+    }
+    if tool_version_compare "$(json_get_version "$mod_json")" "$(tool_split "$(cat "$(tool_mod_get_location "$mod_name")/.shaber/version")" "
 " "1")"
     then
-      log_info "Mod '$1' is up-to-date"
+      log_info "Mod '$mod_name' is up-to-date"
     else
       mod_enabled=0; tool_mod_check_enabled "$1" && mod_enabled=1
-      mod_type="dependency"; [ -f "$self_dir_enabled/$1/.shaber/explicit" ] && mod_type="explicit"
-      log_info "Mod '$1' is out-of-date; proceeding to update"
-      mod_remove "$1"
-      log_info "Downloading mod '$1'"
+      mod_type="dependency"; [ -f "$self_dir_enabled/$mod_name/.shaber/explicit" ] && mod_type="explicit"
+      log_info "Mod '$mod_name' is out-of-date; proceeding to update"
+      mod_remove "$mod_name"
+      log_info "Downloading mod '$mod_name'"
       mod_download "$mod_json"
-      [ $mod_enabled -eq 1 ] && mod_enable "$1"
-      [ "$mod_type" = "explicit" ] && tool_mod_set_explicit "$1"
-      log_info "Updated mod '$1'"
+      [ $mod_enabled -eq 1 ] && mod_enable "$mod_name"
+      [ "$mod_type" = "explicit" ] && tool_mod_set_explicit "$mod_name"
+      log_info "Updated mod '$mod_name'"
     fi
   fi
 }
 
 mod_update_all() {
+  update_all_error=0
   while IFS= read -r mod
   do
-    [ "$mod" = "" ] || mod_update "$mod"
+    [ "$mod" = "" ] || {
+      mod_update "$mod" || {
+        log_error "Failed to update mod '$mod'"
+        update_all_error=1
+      }
+    }
   done <<EOF
 $(tool_mod_list_all)
 EOF
+  [ $update_all_error -eq 0 ]
 }
 
 ipa_native_download_latest() {
@@ -643,7 +735,7 @@ ipa_native_download_latest() {
     log_info "BSIPA is already enabled"
   fi
 
-  ipa_latest_version="$(curl -fsL -H 'Accept: application/json' "https://github.com/geefr/BSIPA-Linux/releases/latest" | jq -r ".tag_name")"
+  ipa_latest_version="$(curl -fsL -H 'Accept: application/json' "https://github.com/geefr/BSIPA-Linux/releases/latest" | jq -r -e ".tag_name")"
 
   if [ -d "$ipa_native_dir" ]
   then
@@ -830,9 +922,13 @@ parse_helper_mod_download() {
     then
       log_warn "Please download '$arg' with 'shaber ipa download'"
     else
-      mod_download_tree "$arg"
+      mod_download_tree "$arg" || main_error=1
     fi
   done
+  [ $main_error -eq 0 ] || {
+    log_warn "Errors occurred while downloading mods! Please check your logs"
+    return 1
+  }
 }
 
 parse_helper_mod_update() {
@@ -843,11 +939,18 @@ parse_helper_mod_update() {
   do
     if [ "$arg" = "all" ]
     then
-      mod_update_all
+      mod_update_all || main_error=1
     else
-      mod_update "$arg"
+      mod_update "$arg" || {
+        log_error "Failed to update mod '$arg'"
+        main_error=1
+      }
     fi
   done
+  [ $main_error -eq 0 ] || {
+    log_warn "Errors occurred while updating mods! Please check your logs"
+    return 1
+  }
 }
 
 parse_helper_mod_checkupdate() {
@@ -858,11 +961,19 @@ parse_helper_mod_checkupdate() {
   do
     if [ "$arg" = "all" ]
     then
-      mod_check_update_all
+      mod_check_update_all || main_error=1
     else
-      mod_check_update "$arg"
+      mod_check_update "$arg" || {
+        log_error "Failed to check for updates to mod '$arg'"
+        main_error=1
+      }
     fi
   done
+
+  [ $main_error -eq 0 ] || {
+    log_warn "Errors occured while checking for updates! Please check your logs"
+    return 1
+  }
 }
 
 parse_helper_mod_enable() {
@@ -873,11 +984,19 @@ parse_helper_mod_enable() {
   do
     if [ "$arg" = "all" ]
     then
-      mod_enable_all
+      mod_enable_all || main_error=1
     else
-      mod_enable_tree "$arg"
+      mod_enable_tree "$arg" || {
+        log_error "Failed to enable mod '$arg'"
+        main_error=1
+      }
     fi
   done
+
+  [ $main_error -eq 0 ] || {
+    log_warn "Errors occured while enabling mods! Please check your logs"
+    return 1
+  }
 }
 
 parse_helper_mod_disable() {
@@ -888,13 +1007,26 @@ parse_helper_mod_disable() {
   do
     if [ "$arg" = "all" ]
     then
-      mod_disable_all
+      mod_disable_all || main_error=1
     else
-      tool_mod_check_dependency "$arg" && { log_error "Mod '$arg' is depended upon, and cannot be disabled."; exit 1; }
-      mod_disable "$arg"
+      tool_mod_check_dependency "$arg" && {
+        log_error "Mod '$arg' is depended upon, and cannot be disabled."
+        main_error=1
+        continue
+      }
+      mod_disable "$arg" || {
+        log_error "Failed to disable mod '$arg'"
+        main_error=1
+      }
     fi
   done
+
   [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can disable them with the command 'shaber orphans disable'"
+
+  [ $main_error -eq 0 ] || {
+    log_error "Errors occurred while removing mods! Please check your logs"
+    return 1
+  }
 }
 
 parse_helper_mod_remove() {
@@ -905,13 +1037,23 @@ parse_helper_mod_remove() {
   do
     if [ "$arg" = "all" ]
     then
-      mod_remove_all
+      mod_remove_all || main_error=1
     else
-      tool_mod_check_dependency "$arg" && { log_error "Mod '$arg' is depended upon, and cannot be removed."; exit 1; }
-      mod_remove "$arg"
+      tool_mod_check_dependency "$arg" && {
+        log_error "Mod '$arg' is depended upon, and cannot be removed."
+        main_error=1
+      }
+      mod_remove "$arg" || {
+        log_error "Failed to remove mod '$arg'"
+      }
     fi
   done
   [ "$(orphans_get)" = "" ] || log_info "Orphans detected; you can remove them with the command 'shaber orphans remove'"
+
+  [ $main_error -eq 0 ] || {
+    log_warn "Errors occurred while removing mods! Please check your logs"
+    return 1
+  }
 }
 
 parse_helper_mod_list() {
@@ -1001,4 +1143,5 @@ parse_helper_ipa_download() {
   ipa_native_download_latest
 }
 
+main_error=0
 args_parse "$@"

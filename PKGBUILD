@@ -1,5 +1,5 @@
 pkgname=shellsaber
-pkgver=0.2.6
+pkgver=0.3.0
 pkgrel=1
 epoch=
 pkgdesc="A mod manager written in POSIX-compliant shell script to support Beat Saber modding on Linux."
@@ -10,7 +10,7 @@ depends=('sh' 'jq' 'curl' 'wget' 'unzip')
 checkdepends=(shellcheck)
 backup=('etc/shaber/config')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/ominitay/$pkgname/archive/refs/tags/$pkgver.tar.gz")
-sha256sums=('c1639b841854b38654fb0391454f293c15a7787c0854c6cbd166dc8db075aee5')
+sha256sums=('e20ef29ac5646a08ee22f0e25390e478d78612c181f4c5e7f45cf84e94aa12fc')
 
 
 check() {
