@@ -23,5 +23,5 @@ package() {
   cd "$pkgname-$pkgver"
 
   install -D -m 775 shaber "$pkgdir/usr/bin/shaber"
-  install -D -m 664 config "$pkgdir/etc/shaber/config"
+  install -D -m 664 config.default "$pkgdir/etc/shaber/config"
 }
