@@ -10,7 +10,7 @@ depends=('sh' 'jq' 'curl' 'wget' 'unzip')
 checkdepends=(shellcheck)
 backup=('etc/shaber/config')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/ominitay/$pkgname/archive/refs/tags/$pkgver.tar.gz")
-sha256sums=('e20ef29ac5646a08ee22f0e25390e478d78612c181f4c5e7f45cf84e94aa12fc')
+sha256sums=('067604d48699681f996fb95857dc07a4eab11f20f5a23a2499cc6f822af7ff8b')
 
 
 check() {
